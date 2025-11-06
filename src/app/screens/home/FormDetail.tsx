@@ -45,7 +45,7 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
   //this is the network status , make it true/false to simulate offline/online
   const { isConnected } = useNetwork();
   const route = useRoute<FormDetailRouteProp>();
-  const { formName } = route.params;
+  const { formName, erpSystemName } = route.params;
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [fields, setFields] = useState<RawField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -256,7 +256,7 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
             className="font-inter text-center text-[18px] font-semibold leading-[32px] tracking-[-0.006em]"
             style={{ color: theme.text }}
           >
-            {t('formsList.title')}
+            {erpSystemName}
           </Text>
         </View>
         <LanguageControl />

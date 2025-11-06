@@ -19,7 +19,10 @@ import { getErpSystems } from '../../../lib/hey-api/client/sdk.gen';
 import { getQueue } from '../../pendingQueue';
 
 type HomeNavigationProp = BottomTabNavigationProp<BottomTabsList, 'Home'> & {
-  navigate: (screen: keyof HomeStackParamList) => void;
+  navigate: (
+    screen: keyof HomeStackParamList,
+    params?: HomeStackParamList[keyof HomeStackParamList]
+  ) => void;
 };
 
 export interface ErpSystem {
@@ -149,9 +152,7 @@ const ERP: React.FC = () => {
               className="m-2 min-h-[100px] w-[45%] items-center justify-center rounded-2xl border"
               style={{ borderColor: theme.border }}
               onPress={() => {
-                if (i === 0) {
-                  navigation.navigate('FormsList');
-                }
+                navigation.navigate('FormsList', { erpSystemName: erp.name });
               }}
             >
               <Text

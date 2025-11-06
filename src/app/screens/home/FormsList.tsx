@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNetwork } from '../../../context/NetworkProvider';
 import { useFocusEffect } from '@react-navigation/native';
@@ -30,6 +30,8 @@ type FormsListNavigationProp = NativeStackNavigationProp<
   'FormsList'
 >;
 
+type FormsListRouteProp = RouteProp<HomeStackParamList, 'FormsList'>;
+
 export interface FormItem {
   name: string;
 }
@@ -42,14 +44,18 @@ const additionalDoctype = [
 
 const FormsList = () => {
   const navigation = useNavigation<FormsListNavigationProp>();
+  const route = useRoute<FormsListRouteProp>();
+  const { isConnected } = useNetwork();
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const { erpSystemName } = route.params || {
+    erpSystemName: t('formsList.title'),
+  };
   const [forms, setForms] = useState<FormItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadStates, setDownloadStates] = useState<{
     [key: string]: { isDownloaded: boolean; isDownloading: boolean };
   }>({});
-  const { isConnected } = useNetwork();
-  const { t } = useTranslation();
-  const { theme } = useTheme();
 
   useEffect(() => {
     const loadForms = async () => {
@@ -151,7 +157,10 @@ const FormsList = () => {
         className="flex-row items-center justify-between border-b px-5 py-4"
         style={{ borderBottomColor: theme.border }}
         onPress={() => {
-          navigation.navigate('FormDetail', { formName: item.name });
+          navigation.navigate('FormDetail', {
+            formName: item.name,
+            erpSystemName,
+          });
         }}
       >
         <Text className="text-base font-normal" style={{ color: theme.text }}>
@@ -218,7 +227,7 @@ const FormsList = () => {
             className="font-inter text-center text-[18px] font-semibold leading-[32px] tracking-[-0.006em]"
             style={{ color: theme.text }}
           >
-            {t('formsList.title')}
+            {erpSystemName}
           </Text>
           <Text className="mt-0.5 text-sm" style={{ color: theme.subtext }}>
             {forms.length} {t('navigation.forms') || 'Forms'}
