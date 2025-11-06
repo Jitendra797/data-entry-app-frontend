@@ -131,7 +131,7 @@
     "password": "పాస్‌వర్డ్",
     "passwordPlaceholder": "పాస్‌వర్డ్",
     "signIn": "లాగిన్",
-    "signInWithGoogle": "Google తో లాగిన్ చేయండి",
+    "signInWithGoogle": "CSA Google తో లాగిన్ చేయండి",
     "forgotPassword": "పాస్‌వర్డ్ మర్చిపోయారా?",
     "noAccount": "ఖాతా లేదా? సైన్ అప్ చేయండి",
     "welcomeMessage": "స్వాగతం {{name}}",
