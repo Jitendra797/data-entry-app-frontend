@@ -343,27 +343,23 @@ function Forms() {
               {isLoading ? '...' : `${pendingFormsCount} FORMS`}
             </Text>
           </View>
-          <TouchableOpacity
-            className="flex-shrink-0"
-            onPress={handleSubmitAllForms}
-            disabled={isLoading || pendingFormsCount === 0}
-          >
-            <Text
-              className="rounded-xl border px-3 py-2 text-sm"
-              style={{
-                borderColor:
-                  isLoading || pendingFormsCount === 0
-                    ? theme.subtext
-                    : theme.pendingBorder,
-                color:
-                  isLoading || pendingFormsCount === 0
-                    ? theme.subtext
-                    : theme.pendingText,
-              }}
+          {pendingFormsCount > 0 && (
+            <TouchableOpacity
+              className="flex-shrink-0"
+              onPress={handleSubmitAllForms}
+              disabled={isLoading}
             >
-              {t('home.submitAllForms')}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                className="rounded-xl border px-3 py-2 text-sm"
+                style={{
+                  borderColor: isLoading ? theme.subtext : theme.pendingBorder,
+                  color: isLoading ? theme.subtext : theme.pendingText,
+                }}
+              >
+                {t('home.submitAllForms')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
       <View className="px-4">
