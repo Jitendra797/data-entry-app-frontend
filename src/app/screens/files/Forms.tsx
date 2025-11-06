@@ -16,9 +16,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { FormStackParamList } from '../../navigation/FormStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
-import { submitFormData } from '../../../lib/hey-api/client/sdk.gen';
+// import { submitFormData } from '../../../lib/hey-api/client/sdk.gen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import { BACKEND_URL } from '@env';
 
 type FormsNavigationProp = NativeStackNavigationProp<
   FormStackParamList,
@@ -105,11 +106,14 @@ function Forms() {
             (async () => {
               try {
                 const results = await Promise.allSettled(
-                  queueData.map(submissionItem =>
-                    axios.post(
-                      'http://127.0.0.1:8000/submit',
-                      submissionItem
-                    ))
+                  queueData.map(async submissionItem =>
+                    axios.post(`${BACKEND_URL}/submit`, submissionItem, {
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${await AsyncStorage.getItem('idToken')}`,
+                      },
+                    })
+                  )
                 );
 
                 const processedResults = results.map((res, index) => {
@@ -176,8 +180,14 @@ function Forms() {
             try {
               console.log(formData);
               const response = await axios.post(
-                'http://127.0.0.1:8000/submit',
-                formData
+                `${BACKEND_URL}/submit`,
+                formData,
+                {
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${await AsyncStorage.getItem('idToken')}`,
+                  },
+                }
               );
               const responseData = response.data as ApiResponse;
 
@@ -187,10 +197,10 @@ function Forms() {
               const processedResult = isSuccess
                 ? { success: true, form: formData, result: responseData }
                 : {
-                  success: false,
-                  form: formData,
-                  reason: responseData?.error || 'Submission failed',
-                };
+                    success: false,
+                    form: formData,
+                    reason: responseData?.error || 'Submission failed',
+                  };
 
               // Remove from queue & local storage if successful
               if (processedResult.success) {
@@ -281,8 +291,9 @@ function Forms() {
                 {submissionResults.map((res, idx) => (
                   <View key={idx} className="mb-2">
                     <Text
-                      className={`font-inter text-[14px] font-normal leading-[20px] tracking-normal ${res.success ? 'text-[#16a34a]' : 'text-[#EF2226]'
-                        }`}
+                      className={`font-inter text-[14px] font-normal leading-[20px] tracking-normal ${
+                        res.success ? 'text-[#16a34a]' : 'text-[#EF2226]'
+                      }`}
                     >
                       {res.form?.formName || res.form?.id || `Form ${idx + 1}`}{' '}
                       —{' '}

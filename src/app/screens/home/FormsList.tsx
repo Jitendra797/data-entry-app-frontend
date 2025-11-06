@@ -14,7 +14,7 @@ import { useNetwork } from '../../../context/NetworkProvider';
 import { useFocusEffect } from '@react-navigation/native';
 import { saveDocTypeToLocal, getAllDocTypeNames } from '../../../api';
 import {
-  getAllDoctypes,
+  // getAllDoctypes,
   getDoctypeByName,
 } from '../../../lib/hey-api/client/sdk.gen';
 import { DocType } from '../../../types';
@@ -23,6 +23,7 @@ import LanguageControl from '../../components/LanguageControl';
 import { ArrowLeft, Download, Check } from 'lucide-react-native';
 import { HomeStackParamList } from '@/app/navigation/HomeStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
+// import { BACKEND_URL } from '@env';
 
 type FormsListNavigationProp = NativeStackNavigationProp<
   HomeStackParamList,
@@ -32,6 +33,12 @@ type FormsListNavigationProp = NativeStackNavigationProp<
 export interface FormItem {
   name: string;
 }
+
+const additionalDoctype = [
+  'Combating Malnutrition Basic Data',
+  'PGS Peer Appraisal Basic Data',
+  'Testing DocType',
+];
 
 const FormsList = () => {
   const navigation = useNavigation<FormsListNavigationProp>();
@@ -49,35 +56,17 @@ const FormsList = () => {
       setLoading(true);
       try {
         if (isConnected) {
-          /* For testing purposes, to add the test form manually */
-
-          const testDoctype = 'Testing DocType';
-          const [doctypesResponse, materialRequestResponse] = await Promise.all(
-            [
-              getAllDoctypes(),
-              fetch(`http://localhost:8000/doctype/${testDoctype}`).then(res =>
-                res.json()
-              ),
-            ]
-          );
-
-          const responseData = doctypesResponse.data as { data: FormItem[] };
-          const data = responseData.data;
-
-          // Add Material Request to the forms list if it exists in the response
-          const testDoctypeItem: FormItem = { name: `${testDoctype}` };
-          const combinedData = [...data, testDoctypeItem];
-          setForms(combinedData);
-
-          /* --------------------------- */
-
-          /* For production use the line below */
-          // const response = await getAllDoctypes();
-          // console.log('response', response);
-          // const responseData = response.data as { data: FormItem[] };
+          // const doctypesResponse = await getAllDoctypes();
+          // const responseData = doctypesResponse.data as { data: FormItem[] };
           // const data = responseData.data;
-          // setForms(data);
-          // /* --------------------------- */
+
+          // // Add additional doctypes to the forms list
+          // const additionalDoctypeItems: FormItem[] = additionalDoctype.map(
+          //   name => ({ name })
+          // );
+          // const combinedData = [...data, ...additionalDoctypeItems];
+          // setForms(combinedData);
+          setForms(additionalDoctype.map(name => ({ name })));
         } else {
           const stored = (await getAllDocTypeNames()) as FormItem[];
           setForms(stored);
