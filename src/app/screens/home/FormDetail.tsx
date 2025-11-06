@@ -318,6 +318,9 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                         borderRadius: 6,
                         backgroundColor: theme.background,
                       }}
+                      inputStyles={{
+                        color: theme.text,
+                      }}
                       dropdownStyles={{
                         borderWidth: 1,
                         borderColor: theme.border,

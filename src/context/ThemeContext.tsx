@@ -69,7 +69,7 @@ const lightTheme: Theme = {
 const darkTheme: Theme = {
   background: '#000000',
   text: '#ffffff',
-  subtext: '#cccccc',
+  subtext: '#9ca3af', // gray-400 - better contrast for placeholders
   border: '#808080',
   cardBackground: '#1a1a1a',
   dropdownBg: '#000000',
