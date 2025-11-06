@@ -152,7 +152,9 @@ const ERP: React.FC = () => {
               className="m-2 min-h-[100px] w-[45%] items-center justify-center rounded-2xl border"
               style={{ borderColor: theme.border }}
               onPress={() => {
-                navigation.navigate('FormsList', { erpSystemName: erp.name });
+                if (erp.name === 'CSA') {
+                  navigation.navigate('FormsList', { erpSystemName: erp.name });
+                }
               }}
             >
               <Text
