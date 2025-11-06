@@ -44,6 +44,7 @@ export default function BottomTabs() {
         tabBarInactiveTintColor: theme.inactiveTint,
         tabBarShowLabel: false,
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           backgroundColor: theme.tabBarBackground,
           height: 62 + insets.bottom,
