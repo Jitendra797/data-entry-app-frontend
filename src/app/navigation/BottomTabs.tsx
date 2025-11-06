@@ -2,6 +2,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { House, FileText, Settings as SettingsIcon } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import HomeStack from './HomeStack';
 import FilesStack from './FormStack';
 import Settings from '../screens/settings/Settings';
@@ -33,6 +34,7 @@ const getTabBarIcon = (route: any) => {
 
 export default function BottomTabs() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -44,8 +46,8 @@ export default function BottomTabs() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.tabBarBackground,
-          height: 62,
-          paddingBottom: 5,
+          height: 62 + insets.bottom,
+          paddingBottom: Math.max(5, insets.bottom),
           paddingTop: 5,
         },
       })}
