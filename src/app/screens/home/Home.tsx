@@ -6,16 +6,17 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { BottomTabsList } from '../../navigation/BottomTabsList';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
 import { ArrowRight } from 'lucide-react-native';
 import { HomeStackParamList } from '../../navigation/HomeStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
 import { getErpSystems } from '../../../lib/hey-api/client/sdk.gen';
+import { getQueue } from '../../pendingQueue';
 
 type HomeNavigationProp = BottomTabNavigationProp<BottomTabsList, 'Home'> & {
   navigate: (screen: keyof HomeStackParamList) => void;
@@ -33,6 +34,7 @@ const ERP: React.FC = () => {
   const { theme } = useTheme();
   const [erpSystems, setErpSystems] = useState<ErpSystem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingFormsCount, setPendingFormsCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchERPSystems = async () => {
@@ -49,6 +51,26 @@ const ERP: React.FC = () => {
 
     fetchERPSystems();
   }, []);
+
+  const fetchPendingFormsCount = useCallback(async () => {
+    try {
+      const pendingSubmissions = await getQueue();
+      if (Array.isArray(pendingSubmissions)) {
+        setPendingFormsCount(pendingSubmissions.length);
+      } else {
+        setPendingFormsCount(0);
+      }
+    } catch (e) {
+      console.error('Error fetching pending forms count:', e);
+      setPendingFormsCount(0);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingFormsCount();
+    }, [fetchPendingFormsCount])
+  );
 
   if (loading) {
     return (
@@ -88,18 +110,18 @@ const ERP: React.FC = () => {
       {/* Pending Forms Card */}
       <View className="mx-6 mb-6">
         <View
-          className="flex-row items-start justify-between rounded-lg border p-4"
+          className="flex-row items-start rounded-lg border p-4"
           style={{
             backgroundColor: theme.cardBackground,
             borderColor: theme.border,
           }}
         >
-          <View className="mr-3 flex-1">
+          <View className="flex-1">
             <Text
               className="text-lg font-bold"
               style={{ color: theme.pendingText }}
             >
-              {t('home.pendingForms', { count: 15 })}
+              {t('home.pendingForms', { count: pendingFormsCount })}
             </Text>
             <TouchableOpacity>
               <View className="mt-2 flex-row items-center gap-2">
@@ -115,17 +137,6 @@ const ERP: React.FC = () => {
               </View>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity className="flex-shrink-0">
-            <Text
-              className="rounded-xl border px-3 py-2 text-sm"
-              style={{
-                borderColor: theme.pendingBorder,
-                color: theme.pendingText,
-              }}
-            >
-              {t('home.submitAllForms')}
-            </Text>
-          </TouchableOpacity>
         </View>
       </View>
 
