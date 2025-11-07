@@ -8,7 +8,6 @@ import {
   Alert,
 } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { SelectList } from 'react-native-dropdown-select-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/app/navigation/RootStackedList';
@@ -25,6 +24,7 @@ import { getDoctypeByName } from '../../../lib/hey-api/client/sdk.gen';
 import { DocType, RawField } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
+import SelectDropdown from '../../components/SelectDropdown';
 import generateSchemaHash from '../../../helper/hashFunction';
 import { ArrowLeft } from 'lucide-react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -50,6 +50,9 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
   const [fields, setFields] = useState<RawField[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [dropdownStates, setDropdownStates] = useState<Record<string, boolean>>(
+    {}
+  );
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isSubmittedRef = useRef(false);
@@ -218,6 +221,24 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
     setFormData(updated);
     //store the temp data on every change
     await AsyncStorage.setItem('tempFormData', JSON.stringify(updated));
+    // Close dropdown after selection
+    if (dropdownStates[fieldname]) {
+      setDropdownStates(prev => ({
+        ...prev,
+        [fieldname]: false,
+      }));
+    }
+  };
+
+  const toggleDropdown = (fieldName: string) => {
+    setDropdownStates(prev => ({
+      ...prev,
+      [fieldName]: !prev[fieldName],
+    }));
+  };
+
+  const closeAllDropdowns = () => {
+    setDropdownStates({});
   };
 
   if (loading) {
@@ -267,110 +288,93 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
         extraScrollHeight={50}
         enableOnAndroid={true}
       >
-        <ScrollView className="gap-3 p-6">
-          <Text
-            className="mb-1 text-3xl font-bold"
-            style={{ color: theme.text }}
-          >
-            {formName}
-          </Text>
-          <Text className="mb-6 text-base" style={{ color: theme.subtext }}>
-            {t('formDetail.subtitle')}
-          </Text>
-          <View className="flex-col">
-            {fields.map(field => (
-              <View key={field.fieldname} className="mb-4">
-                <Text
-                  className="font-sans text-sm font-medium leading-5 tracking-normal"
-                  style={{ color: theme.text }}
-                >
-                  {field.label || field.fieldname}
-                </Text>
-                {field.fieldtype === 'Select' && field.options ? (
-                  <View
-                    className="z-50 w-full overflow-hidden rounded-md"
-                    style={{ backgroundColor: theme.background }}
-                  >
-                    <SelectList
-                      setSelected={(val: string) =>
-                        handleChange(field.fieldname, val)
-                      }
-                      data={
-                        field.options
-                          ?.split('\n')
-                          .map(opt => ({ key: opt, value: opt })) || []
-                      }
-                      save="value"
-                      defaultOption={
-                        field.default
-                          ? { key: field.default, value: field.default }
-                          : undefined
-                      }
-                      placeholder={t('formDetail.selectPlaceholder', {
-                        label: field.label || field.fieldname,
-                      })}
-                      boxStyles={{
-                        height: 45,
-                        justifyContent: 'space-between',
-                        paddingHorizontal: 12,
-                        borderWidth: 1,
-                        borderColor: theme.border,
-                        borderRadius: 6,
-                        backgroundColor: theme.background,
-                      }}
-                      inputStyles={{
-                        color: theme.text,
-                      }}
-                      dropdownStyles={{
-                        borderWidth: 1,
-                        borderColor: theme.border,
-                        borderRadius: 10,
-                        backgroundColor: theme.dropdownBg,
-                        shadowColor: theme.shadow,
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 5,
-                        zIndex: 1000,
-                      }}
-                      dropdownItemStyles={{
-                        paddingVertical: 12,
-                        paddingHorizontal: 15,
-                      }}
-                      dropdownTextStyles={{
-                        fontSize: 16,
-                        color: theme.text,
-                      }}
-                    />
-                  </View>
-                ) : (
-                  <TextInput
-                    className="h-[40px] w-full rotate-0 rounded-md border pb-2.5 pl-3 pr-3 pt-2.5 opacity-100"
-                    style={{
-                      borderColor: theme.border,
-                      backgroundColor: theme.background,
-                      color: theme.text,
-                    }}
-                    placeholder={t('formDetail.enterPlaceholder', {
-                      label: field.label || field.fieldname,
-                    })}
-                    placeholderTextColor={theme.subtext}
-                    value={formData[field.fieldname] || ''}
-                    onChangeText={text => handleChange(field.fieldname, text)}
-                  />
-                )}
-              </View>
-            ))}
-            <TouchableOpacity
-              className="w-full min-w-[80px] items-center justify-center gap-1 rounded-md p-4 opacity-100"
-              style={{ backgroundColor: theme.buttonBackground }}
-              onPress={handleSubmitConfirmation}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={closeAllDropdowns}
+          className="flex-1"
+        >
+          <ScrollView className="gap-3 p-6">
+            <Text
+              className="mb-1 text-3xl font-bold"
+              style={{ color: theme.text }}
             >
-              <Text className="" style={{ color: theme.buttonText }}>
-                {t('formDetail.submit')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+              {formName}
+            </Text>
+            <Text className="mb-6 text-base" style={{ color: theme.subtext }}>
+              {t('formDetail.subtitle')}
+            </Text>
+            <View className="flex-col">
+              {fields.map((field, index) => {
+                const isSelectField =
+                  field.fieldtype === 'Select' && field.options;
+                const optionsList =
+                  isSelectField && field.options
+                    ? field.options
+                        .split('\n')
+                        .filter((opt: string) => opt.trim())
+                    : [];
+                const isOpen = dropdownStates[field.fieldname] || false;
+                const selectedValue = formData[field.fieldname];
+
+                return (
+                  <View
+                    key={field.fieldname}
+                    className="mb-4"
+                    style={{ zIndex: 1000 - index }}
+                  >
+                    <Text
+                      className="font-sans text-sm font-medium leading-5 tracking-normal"
+                      style={{ color: theme.text }}
+                    >
+                      {field.label || field.fieldname}
+                    </Text>
+                    {isSelectField ? (
+                      <SelectDropdown
+                        options={optionsList}
+                        value={selectedValue}
+                        onValueChange={value =>
+                          handleChange(field.fieldname, value)
+                        }
+                        placeholder={t('formDetail.selectPlaceholder', {
+                          label: field.label || field.fieldname,
+                        })}
+                        isOpen={isOpen}
+                        onToggle={() => toggleDropdown(field.fieldname)}
+                        containerZIndex={1000 - index}
+                      />
+                    ) : (
+                      <TextInput
+                        className="h-[40px] w-full rotate-0 rounded-md border pb-2.5 pl-3 pr-3 pt-2.5 opacity-100"
+                        style={{
+                          borderColor: theme.border,
+                          backgroundColor: theme.background,
+                          color: theme.text,
+                        }}
+                        placeholder={t('formDetail.enterPlaceholder', {
+                          label: field.label || field.fieldname,
+                        })}
+                        placeholderTextColor={theme.subtext}
+                        value={formData[field.fieldname] || ''}
+                        onChangeText={text =>
+                          handleChange(field.fieldname, text)
+                        }
+                      />
+                    )}
+                  </View>
+                );
+              })}
+              <TouchableOpacity
+                className="w-full min-w-[80px] items-center justify-center gap-1 rounded-md p-4 opacity-100"
+                style={{ backgroundColor: theme.buttonBackground }}
+                onPress={handleSubmitConfirmation}
+              >
+                <Text className="" style={{ color: theme.buttonText }}>
+                  {t('formDetail.submit')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </TouchableOpacity>
       </KeyboardAwareScrollView>
 
       <Modal

@@ -41,52 +41,52 @@ export interface Theme {
   statusBarStyle: 'light-content' | 'dark-content';
 }
 
-// Define light and dark themes
+// Define light and dark themes - colors are exact opposites
 const lightTheme: Theme = {
-  background: '#ffffff',
-  text: '#000000',
-  subtext: '#64748B', // slate-500
-  border: '#808080',
-  cardBackground: '#FFFCF0', // light yellow
-  dropdownBg: '#ffffff',
-  selectedBg: '#000000',
-  selectedText: '#ffffff',
-  dropdownSelectedBg: '#1A1A1A', // darkerGrey for light mode
-  iconColor: '#000000',
-  buttonBackground: '#000000',
-  buttonText: '#ffffff',
-  modalBackground: '#ffffff',
-  modalOverlay: '#00000033',
-  activeTint: '#000000',
-  inactiveTint: '#64748B',
-  tabBarBackground: '#E4E5E5', // light grey
-  pendingText: '#DC7609',
-  pendingBorder: '#DC7609',
-  shadow: '#000000',
+  background: '#FFFFFF', // white
+  text: '#000000', // black
+  subtext: '#64748B', // slate-500 (medium gray)
+  border: '#E5E7EB', // light gray border
+  cardBackground: '#F9FAFB', // very light gray
+  dropdownBg: '#FFFFFF', // white background for dropdown
+  selectedBg: '#000000', // black for selected
+  selectedText: '#FFFFFF', // white text on selected
+  dropdownSelectedBg: '#F3F4F6', // light gray for selected items
+  iconColor: '#000000', // black icons
+  buttonBackground: '#000000', // black button
+  buttonText: '#FFFFFF', // white text on button
+  modalBackground: '#FFFFFF', // white modal
+  modalOverlay: '#00000033', // dark overlay with transparency
+  activeTint: '#000000', // black active
+  inactiveTint: '#9CA3AF', // gray inactive
+  tabBarBackground: '#FFFFFF', // white tab bar
+  pendingText: '#DC7609', // orange (status color, same in both)
+  pendingBorder: '#DC7609', // orange border (status color, same in both)
+  shadow: '#000000', // black shadow
   statusBarStyle: 'dark-content',
 };
 
 const darkTheme: Theme = {
-  background: '#000000',
-  text: '#ffffff',
-  subtext: '#9ca3af', // gray-400 - better contrast for placeholders
-  border: '#808080',
-  cardBackground: '#1a1a1a',
-  dropdownBg: '#000000',
-  selectedBg: '#ffffff',
-  selectedText: '#000000',
-  dropdownSelectedBg: '#E6E6E6', // lightGrey for dark mode
-  iconColor: '#ffffff',
-  buttonBackground: '#ffffff',
-  buttonText: '#000000',
-  modalBackground: '#1a1a1a',
-  modalOverlay: '#00000066',
-  activeTint: '#ffffff',
-  inactiveTint: '#808080',
-  tabBarBackground: '#1a1a1a', // darker grey
-  pendingText: '#FFA500',
-  pendingBorder: '#FFA500',
-  shadow: '#000000',
+  background: '#000000', // black (opposite of white)
+  text: '#FFFFFF', // white (opposite of black)
+  subtext: '#9CA3AF', // gray-400 (opposite tone of slate-500)
+  border: '#404040', // dark gray (opposite of light gray)
+  cardBackground: '#1A1A1A', // dark gray (opposite of light gray)
+  dropdownBg: '#1A1A1A', // dark gray dropdown (opposite of white)
+  selectedBg: '#FFFFFF', // white for selected (opposite of black)
+  selectedText: '#000000', // black text on selected (opposite of white)
+  dropdownSelectedBg: '#2D2D2D', // medium dark gray (opposite of light gray)
+  iconColor: '#FFFFFF', // white icons (opposite of black)
+  buttonBackground: '#FFFFFF', // white button (opposite of black)
+  buttonText: '#000000', // black text on button (opposite of white)
+  modalBackground: '#1A1A1A', // dark modal (opposite of white)
+  modalOverlay: '#FFFFFF33', // white overlay with transparency (opposite of dark)
+  activeTint: '#FFFFFF', // white active (opposite of black)
+  inactiveTint: '#808080', // medium gray (opposite tone)
+  tabBarBackground: '#1A1A1A', // dark tab bar (opposite of white)
+  pendingText: '#FFA500', // orange (status color, same in both)
+  pendingBorder: '#FFA500', // orange border (status color, same in both)
+  shadow: '#FFFFFF', // white shadow (opposite of black)
   statusBarStyle: 'light-content',
 };
 
