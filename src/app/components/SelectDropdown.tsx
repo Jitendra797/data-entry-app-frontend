@@ -10,7 +10,6 @@ interface SelectDropdownProps {
   placeholder: string;
   isOpen: boolean;
   onToggle: () => void;
-  label?: string;
   containerZIndex?: number;
 }
 
@@ -21,18 +20,39 @@ const SelectDropdown: React.FC<SelectDropdownProps> = ({
   placeholder,
   isOpen,
   onToggle,
-  label,
   containerZIndex,
 }) => {
   const { theme } = useTheme();
 
+  const containerStyle = {
+    position: 'relative' as const,
+    zIndex: containerZIndex,
+  };
+
+  const dropdownStyle = {
+    position: 'absolute' as const,
+    top: 45,
+    left: 0,
+    right: 0,
+    zIndex: 2000,
+    backgroundColor: theme.dropdownBg,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    borderRadius: 8,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 20,
+    maxHeight: 250,
+  };
+
+  const scrollViewStyle = {
+    maxHeight: 250,
+  };
+
   return (
-    <View
-      style={{
-        position: 'relative',
-        zIndex: containerZIndex,
-      }}
-    >
+    <View style={containerStyle}>
       {/* Dropdown Toggle Button */}
       <TouchableOpacity
         className="h-[40px] w-full flex-row items-center justify-between rounded-md border px-3"
@@ -61,31 +81,16 @@ const SelectDropdown: React.FC<SelectDropdownProps> = ({
 
       {/* Dropdown Options */}
       {isOpen && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 45,
-            left: 0,
-            right: 0,
-            zIndex: 2000,
-            backgroundColor: theme.dropdownBg,
-            borderWidth: 1.5,
-            borderColor: theme.border,
-            borderRadius: 8,
-            shadowColor: theme.shadow,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 8,
-            elevation: 20,
-            maxHeight: 250,
-          }}
-        >
+        <View style={dropdownStyle}>
           {/* Options List */}
-          <ScrollView nestedScrollEnabled={true} style={{ maxHeight: 250 }}>
+          <ScrollView nestedScrollEnabled={true} style={scrollViewStyle}>
             {options.length > 0 ? (
               options.map((option: string, optIndex: number) => {
                 const trimmedOption = option.trim();
                 const isSelected = value === trimmedOption;
+                const fontWeight = isSelected
+                  ? ('600' as const)
+                  : ('normal' as const);
                 return (
                   <TouchableOpacity
                     key={optIndex}
@@ -106,7 +111,7 @@ const SelectDropdown: React.FC<SelectDropdownProps> = ({
                     <Text
                       style={{
                         color: theme.text,
-                        fontWeight: isSelected ? '600' : 'normal',
+                        fontWeight,
                       }}
                     >
                       {trimmedOption}
