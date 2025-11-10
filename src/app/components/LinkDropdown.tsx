@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,9 +31,11 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
   containerZIndex,
 }) => {
   const { theme } = useTheme();
-  const [options, setOptions] = useState<string[]>([]);
+  const [allOptions, setAllOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const hasLoadedRef = useRef(false);
 
   const containerStyle = {
     position: 'relative' as const,
@@ -56,19 +59,45 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
     elevation: 20,
   };
 
-  const dropdownMaxHeight = Math.min(Math.max(options.length, 4) * 48, 480);
+  const filteredOptions = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return allOptions;
+    }
+    const lower = searchTerm.trim().toLowerCase();
+    return allOptions.filter(option => option.toLowerCase().includes(lower));
+  }, [allOptions, searchTerm]);
+
+  const displayOptions = useMemo(
+    () => filteredOptions.slice(0, 20),
+    [filteredOptions]
+  );
+
+  const dropdownMaxHeight = Math.min(
+    Math.max(displayOptions.length, 4) * 48 + 56,
+    480
+  );
 
   const scrollViewStyle = {
-    maxHeight: dropdownMaxHeight,
+    maxHeight: dropdownMaxHeight - 56,
   };
 
   const normalizedDoctype = useMemo(() => (doctype || '').trim(), [doctype]);
+
+  useEffect(() => {
+    hasLoadedRef.current = false;
+    setAllOptions([]);
+    setSearchTerm('');
+  }, [normalizedDoctype]);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
     if (!normalizedDoctype) {
+      return;
+    }
+    if (hasLoadedRef.current && allOptions.length > 0) {
+      setSearchTerm('');
       return;
     }
     let cancelled = false;
@@ -116,14 +145,15 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
               typeof opt === 'string' && opt.trim().length > 0
           )
           .map(opt => opt.trim());
-        const truncatedList = normalizedOptions.slice(0, 10);
         console.log('[LinkDropdown] parsed options', {
           total: list.length,
-          rendered: truncatedList.length,
-          sample: truncatedList,
+          rendered: normalizedOptions.length,
+          sample: normalizedOptions.slice(0, 10),
         });
         if (!cancelled) {
-          setOptions(truncatedList);
+          hasLoadedRef.current = true;
+          setAllOptions(normalizedOptions);
+          setSearchTerm('');
         }
       } catch (e) {
         if (!cancelled) {
@@ -139,7 +169,7 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, normalizedDoctype]);
+  }, [isOpen, normalizedDoctype, allOptions.length]);
 
   return (
     <View style={containerStyle}>
@@ -184,53 +214,69 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
               </Text>
             </View>
           ) : (
-            <ScrollView nestedScrollEnabled={true} style={scrollViewStyle}>
-              {options.length > 0 ? (
-                options.map((option: string, optIndex: number) => {
-                  const trimmedOption = (option || '').toString().trim();
-                  const isSelected = value === trimmedOption;
-                  const fontWeight = isSelected
-                    ? ('600' as const)
-                    : ('normal' as const);
-                  return (
-                    <TouchableOpacity
-                      key={`${trimmedOption}-${optIndex}`}
-                      className={`px-4 py-3 ${optIndex < options.length - 1 ? 'border-b' : ''}`}
-                      style={{
-                        backgroundColor: isSelected
-                          ? theme.dropdownSelectedBg
-                          : theme.dropdownBg,
-                        borderBottomColor:
-                          optIndex < options.length - 1
-                            ? theme.border
-                            : undefined,
-                      }}
-                      onPress={() => {
-                        onValueChange(trimmedOption);
-                      }}
-                    >
-                      <Text
+            <>
+              <View className="px-3 pt-3">
+                <TextInput
+                  className="h-[40px] w-full rounded-md border px-3"
+                  style={{
+                    borderColor: theme.border,
+                    backgroundColor: theme.background,
+                    color: theme.text,
+                  }}
+                  value={searchTerm}
+                  onChangeText={text => setSearchTerm(text)}
+                  placeholder={placeholder ? `Search ${placeholder}` : 'Search'}
+                  placeholderTextColor={theme.subtext}
+                />
+              </View>
+              <ScrollView nestedScrollEnabled={true} style={scrollViewStyle}>
+                {displayOptions.length > 0 ? (
+                  displayOptions.map((option: string, optIndex: number) => {
+                    const trimmedOption = (option || '').toString().trim();
+                    const isSelected = value === trimmedOption;
+                    const fontWeight = isSelected
+                      ? ('600' as const)
+                      : ('normal' as const);
+                    return (
+                      <TouchableOpacity
+                        key={`${trimmedOption}-${optIndex}`}
+                        className={`px-4 py-3 ${optIndex < displayOptions.length - 1 ? 'border-b' : ''}`}
                         style={{
-                          color: theme.text,
-                          fontWeight,
+                          backgroundColor: isSelected
+                            ? theme.dropdownSelectedBg
+                            : theme.dropdownBg,
+                          borderBottomColor:
+                            optIndex < displayOptions.length - 1
+                              ? theme.border
+                              : undefined,
+                        }}
+                        onPress={() => {
+                          onValueChange(trimmedOption);
                         }}
                       >
-                        {trimmedOption}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })
-              ) : (
-                <View className="px-4 py-6">
-                  <Text
-                    className="text-center text-sm"
-                    style={{ color: theme.subtext }}
-                  >
-                    No options available
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
+                        <Text
+                          style={{
+                            color: theme.text,
+                            fontWeight,
+                          }}
+                        >
+                          {trimmedOption}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View className="px-4 py-6">
+                    <Text
+                      className="text-center text-sm"
+                      style={{ color: theme.subtext }}
+                    >
+                      No options available
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </>
           )}
         </View>
       )}
