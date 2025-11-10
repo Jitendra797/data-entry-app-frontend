@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { DocType, FormItem, RawField } from './types';
+import { DocType, Field, FormItem, RawField } from './types';
 
 export async function getAllDoctypesFromLocal(): Promise<
   Record<string, DocType>
@@ -67,10 +67,11 @@ export async function saveDocTypeToLocal(
   }
 }
 export function extractFields(docType: DocType): RawField[] {
-  return docType.fields.map((field: RawField) => ({
+  return docType.fields.map((field: Field) => ({
     fieldname: field.fieldname,
     fieldtype: field.fieldtype,
     label: field.label,
     options: field.options,
+    hidden: field.hidden,
   }));
 }

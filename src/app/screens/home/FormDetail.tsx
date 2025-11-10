@@ -103,11 +103,14 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
         console.warn('No cached data available for offline use');
       }
 
-      const inputFields = allFields.filter(field =>
-        ['Data', 'Select', 'Text', 'Int', 'Link', 'Date'].includes(
+      const inputFields = allFields.filter(field => {
+        if (field.hidden) {
+          return false;
+        }
+        return ['Data', 'Select', 'Text', 'Int', 'Link', 'Date'].includes(
           field.fieldtype
-        )
-      );
+        );
+      });
 
       const defaults: Record<string, any> = {};
       inputFields.forEach(field => {

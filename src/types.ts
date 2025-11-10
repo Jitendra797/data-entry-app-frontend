@@ -14,6 +14,7 @@ export type RawField = {
   label: string;
   options?: string;
   default?: string;
+  hidden?: number;
 };
 export interface DocType {
   data: Data;
