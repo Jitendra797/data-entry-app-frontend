@@ -25,6 +25,7 @@ import { DocType, RawField } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
 import SelectDropdown from '../../components/SelectDropdown';
+import LinkDropdown from '../../components/LinkDropdown';
 import generateSchemaHash from '../../../helper/hashFunction';
 import { ArrowLeft } from 'lucide-react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -313,6 +314,7 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                         .split('\n')
                         .filter((opt: string) => opt.trim())
                     : [];
+                const isLinkField = field.fieldtype === 'Link' && field.options;
                 const isOpen = dropdownStates[field.fieldname] || false;
                 const selectedValue = formData[field.fieldname];
 
@@ -331,6 +333,20 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                     {isSelectField ? (
                       <SelectDropdown
                         options={optionsList}
+                        value={selectedValue}
+                        onValueChange={value =>
+                          handleChange(field.fieldname, value)
+                        }
+                        placeholder={t('formDetail.selectPlaceholder', {
+                          label: field.label || field.fieldname,
+                        })}
+                        isOpen={isOpen}
+                        onToggle={() => toggleDropdown(field.fieldname)}
+                        containerZIndex={1000 - index}
+                      />
+                    ) : isLinkField ? (
+                      <LinkDropdown
+                        doctype={field.options as string}
                         value={selectedValue}
                         onValueChange={value =>
                           handleChange(field.fieldname, value)
