@@ -42,7 +42,13 @@
     "confirmSubmission": "Confirm Submission",
     "confirmSubmissionMessage": "Are you sure you want to submit this form? This action cannot be undone.",
     "deleteForm": "Delete the Form",
-    "confirmDeleteMessage": "Are you sure you want to delete this form? This action cannot be undone."
+    "confirmDeleteMessage": "Are you sure you want to delete this form? This action cannot be undone.",
+    "tableFieldNotice": "Manage table rows below.",
+    "tableRows": "{{count}} rows",
+    "noRows": "No rows",
+    "addRow": "Add row",
+    "rowLabel": "Row {{index}}",
+    "emptyRow": "Empty row"
   },
   "previewForm": {
     "title": "Preview Form",
