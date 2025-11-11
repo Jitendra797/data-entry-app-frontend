@@ -299,7 +299,15 @@ function PreviewForm() {
 
   // Create fields from the form schema if available, otherwise fallback to form data keys
   // Filter out hidden fields and only show input fieldtypes (same as FormDetail)
-  const allowedFieldTypes = ['Data', 'Select', 'Text', 'Int', 'Link', 'Date'];
+  const allowedFieldTypes = [
+    'Data',
+    'Select',
+    'Text',
+    'Int',
+    'Float',
+    'Link',
+    'Date',
+  ];
   const fieldsToRender =
     formFields.length > 0
       ? formFields
