@@ -13,7 +13,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
 import { getDoctypeByName } from '../../../lib/hey-api/client/sdk.gen';
-import { extractFields } from '../../../api';
+import {
+  extractFields,
+  getDocTypeFromLocal,
+  saveDocTypeToLocal,
+} from '../../../api';
 import { RawField, DocType } from '../../../types';
 import SelectDropdown from '../../components/SelectDropdown';
 import LinkDropdown from '../../components/LinkDropdown';
@@ -25,6 +29,7 @@ type TableRowEditorRouteParams = {
   title?: string;
   index?: number; // when editing existing row
   initialRow?: Record<string, any> | null;
+  schema?: RawField[] | null;
 };
 
 type Route = RouteProp<
@@ -37,7 +42,8 @@ const TableRowEditor: React.FC = () => {
   const { t } = useTranslation();
   const route = useRoute<Route>();
   const navigation = useNavigation();
-  const { fieldname, tableDoctype, index, initialRow, title } = route.params;
+  const { fieldname, tableDoctype, index, initialRow, title, schema } =
+    route.params;
 
   const [fields, setFields] = useState<RawField[]>([]);
   const [rowData, setRowData] = useState<Record<string, any>>(initialRow || {});
@@ -46,15 +52,73 @@ const TableRowEditor: React.FC = () => {
     {}
   );
 
-  const loadSchema = useCallback(async () => {
+  const tryParseJSON = (value: string | null) => {
     try {
-      setLoading(true);
-      const response = await getDoctypeByName({
-        path: { form_name: tableDoctype },
-      });
-      const responseData = response.data as { data: DocType };
-      const fetched = responseData.data;
-      const f = extractFields(fetched);
+      return value ? JSON.parse(value) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const findLocalDocType = useCallback(
+    async (name: string): Promise<DocType | null> => {
+      const cached = await getDocTypeFromLocal(name);
+      if (cached && cached.fields) {
+        return cached;
+      }
+
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
+        for (const key of docTypeKeys) {
+          const data = await AsyncStorage.getItem(key);
+          const parsed = tryParseJSON(data);
+          if (
+            parsed &&
+            (parsed.name === name ||
+              parsed.doctype === name ||
+              parsed.title === name)
+          ) {
+            return parsed as DocType;
+          }
+        }
+      } catch {
+        // ignore local lookup errors
+      }
+      return null;
+    },
+    []
+  );
+
+  const loadSchema = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Try local cache first
+      let docType: DocType | null = await findLocalDocType(tableDoctype);
+
+      // Fallback to API and cache it
+      if (!docType) {
+        try {
+          const response = await getDoctypeByName({
+            path: { form_name: tableDoctype },
+          });
+          const responseData = response.data as { data: DocType };
+          docType = responseData.data;
+          try {
+            await saveDocTypeToLocal(tableDoctype, docType);
+          } catch {
+            // ignore cache save errors
+          }
+        } catch {
+          // ignore network errors; we'll fall back below
+        }
+      }
+
+      let f: RawField[] | null = null;
+      if (docType && docType.fields) {
+        f = extractFields(docType);
+      }
+
       // Allow same basic input types in row editor
       const allowed = [
         'Data',
@@ -65,17 +129,45 @@ const TableRowEditor: React.FC = () => {
         'Link',
         'Date',
       ];
-      setFields(f.filter(x => !x.hidden && allowed.includes(x.fieldtype)));
-    } catch (e) {
-      Alert.alert(t('common.error'), `Failed to load "${tableDoctype}" schema`);
+
+      if (f && f.length > 0) {
+        setFields(f.filter(x => !x.hidden && allowed.includes(x.fieldtype)));
+      } else if (initialRow && Object.keys(initialRow).length > 0) {
+        // Fallback: derive fields from existing row keys
+        const derived: RawField[] = Object.keys(initialRow).map(k => ({
+          fieldname: k,
+          label: k,
+          fieldtype: 'Data',
+          options: '',
+          hidden: 0 as any,
+        }));
+        setFields(derived);
+      } else {
+        // Last resort: no schema and no initial row; keep empty form
+        setFields([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [tableDoctype, t]);
+  }, [findLocalDocType, tableDoctype, initialRow]);
 
   useEffect(() => {
-    loadSchema();
-  }, [loadSchema]);
+    if (schema && schema.length > 0) {
+      const allowed = [
+        'Data',
+        'Select',
+        'Text',
+        'Int',
+        'Float',
+        'Link',
+        'Date',
+      ];
+      setFields(schema.filter(x => !x.hidden && allowed.includes(x.fieldtype)));
+      setLoading(false);
+    } else {
+      loadSchema();
+    }
+  }, [schema, loadSchema]);
 
   const handleChange = (name: string, value: any) => {
     setRowData(prev => ({ ...prev, [name]: value }));

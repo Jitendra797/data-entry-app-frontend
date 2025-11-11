@@ -14,6 +14,7 @@ import LanguageControl from '../../components/LanguageControl';
 import SelectDropdown from '../../components/SelectDropdown';
 import LinkDropdown from '../../components/LinkDropdown';
 import DatePicker from '../../components/DatePicker';
+import TableField from '../../components/TableField';
 import { useTranslation } from 'react-i18next';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { SubmissionItem, RawField } from '../../../types';
@@ -22,6 +23,7 @@ import { FormStackParamList } from '@/app/navigation/FormStackParamList';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../../context/ThemeContext';
+import { extractFields, getDocTypeFromLocal } from '../../../api';
 
 type PreviewFormRouteProp = RouteProp<FormStackParamList, 'PreviewForm'>;
 type PreviewFormNavigationProp = NativeStackNavigationProp<
@@ -51,67 +53,145 @@ function PreviewForm() {
   const [dropdownStates, setDropdownStates] = useState<Record<string, boolean>>(
     {}
   );
+  const [tableSchemas, setTableSchemas] = useState<
+    Record<string, RawField[] | null>
+  >({});
 
   // Get the formId from route params
   const { formId } = route.params;
 
   // Helper function to parse JSON safely
-  const tryParseJSON = (jsonString: string | null) => {
+  const tryParseJSON = useCallback((jsonString: string | null) => {
     try {
       return jsonString ? JSON.parse(jsonString) : null;
     } catch (e) {
       return null;
     }
-  };
+  }, []);
 
-  // Fetch form schema using form name
-  const fetchFormSchema = useCallback(async (formName: string) => {
-    try {
-      console.log('Fetching form schema for:', formName);
-
-      // Check if there's downloadDoctypes data
-      const downloadDoctypesData =
-        await AsyncStorage.getItem('downloadDoctypes');
-      if (downloadDoctypesData) {
-        const doctypes = tryParseJSON(downloadDoctypesData);
-        if (doctypes && doctypes[formName]) {
-          console.log(
-            'Found form schema in downloadDoctypes:',
-            doctypes[formName]
-          );
-          if (doctypes[formName].fields) {
-            setFormFields(doctypes[formName].fields);
-          }
-          return;
-        }
+  const fetchTableSchema = useCallback(
+    async (tableDoctype: string): Promise<RawField[] | null> => {
+      if (!tableDoctype) {
+        return null;
+      }
+      const cached = await getDocTypeFromLocal(tableDoctype);
+      if (cached && cached.fields) {
+        return extractFields(cached);
       }
 
-      // Fallback: search in all docType_ prefixed keys
-      const keys = await AsyncStorage.getAllKeys();
-      const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
-
-      for (const key of docTypeKeys) {
-        const data = await AsyncStorage.getItem(key);
-        if (data) {
-          const parsedData = tryParseJSON(data);
+      try {
+        const keys = await AsyncStorage.getAllKeys();
+        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
+        for (const key of docTypeKeys) {
+          const data = await AsyncStorage.getItem(key);
+          const parsed = tryParseJSON(data);
           if (
-            parsedData &&
-            (parsedData.name === formName || parsedData.doctype === formName)
+            parsed &&
+            parsed.fields &&
+            (parsed.name === tableDoctype ||
+              parsed.doctype === tableDoctype ||
+              parsed.title === tableDoctype)
           ) {
-            console.log('Found form schema in docType_:', parsedData);
-            if (parsedData.fields) {
-              setFormFields(parsedData.fields);
+            return extractFields(parsed);
+          }
+        }
+      } catch {
+        // ignore lookup errors
+      }
+      return null;
+    },
+    [tryParseJSON]
+  );
+
+  const loadTableSchemas = useCallback(
+    async (fields: RawField[]) => {
+      if (!fields || fields.length === 0) {
+        setTableSchemas({});
+        return;
+      }
+      const tableFields = fields.filter(
+        field => field.fieldtype === 'Table' && field.options
+      );
+      if (tableFields.length === 0) {
+        setTableSchemas({});
+        return;
+      }
+      const schemaEntries = await Promise.all(
+        tableFields.map(async field => {
+          const schema = await fetchTableSchema(field.options as string);
+          return [field.fieldname, schema] as [string, RawField[] | null];
+        })
+      );
+      const updated: Record<string, RawField[] | null> = {};
+      schemaEntries.forEach(([fieldname, schema]) => {
+        updated[fieldname] = schema;
+      });
+      setTableSchemas(updated);
+    },
+    [fetchTableSchema]
+  );
+
+  // Fetch form schema using form name
+  const fetchFormSchema = useCallback(
+    async (formName: string) => {
+      try {
+        console.log('Fetching form schema for:', formName);
+
+        // Check if there's downloadDoctypes data
+        const downloadDoctypesData =
+          await AsyncStorage.getItem('downloadDoctypes');
+        if (downloadDoctypesData) {
+          const doctypes = tryParseJSON(downloadDoctypesData);
+          if (doctypes && doctypes[formName]) {
+            console.log(
+              'Found form schema in downloadDoctypes:',
+              doctypes[formName]
+            );
+            if (doctypes[formName].fields) {
+              const fields = doctypes[formName].fields;
+              setFormFields(fields);
+              await loadTableSchemas(fields);
+            } else {
+              setTableSchemas({});
             }
             return;
           }
         }
-      }
 
-      console.log('No form schema found for:', formName);
-    } catch (error) {
-      console.error('Error fetching form schema:', error);
-    }
-  }, []);
+        // Fallback: search in all docType_ prefixed keys
+        const keys = await AsyncStorage.getAllKeys();
+        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
+
+        for (const key of docTypeKeys) {
+          const data = await AsyncStorage.getItem(key);
+          if (data) {
+            const parsedData = tryParseJSON(data);
+            if (
+              parsedData &&
+              (parsedData.name === formName || parsedData.doctype === formName)
+            ) {
+              console.log('Found form schema in docType_:', parsedData);
+              if (parsedData.fields) {
+                const fields = parsedData.fields;
+                setFormFields(fields);
+                await loadTableSchemas(fields);
+              } else {
+                setTableSchemas({});
+              }
+              return;
+            }
+          }
+        }
+
+        console.log('No form schema found for:', formName);
+        setTableSchemas({});
+      } catch (error) {
+        console.error('Error fetching form schema:', error);
+        setTableSchemas({});
+      }
+    },
+    [loadTableSchemas, tryParseJSON]
+  );
 
   const loadFormData = useCallback(async () => {
     try {
@@ -149,7 +229,46 @@ function PreviewForm() {
     loadFormData();
   }, [formId, loadFormData, route]);
 
-  const handleChange = (fieldName: string, value: string | boolean) => {
+  // Apply table row edits created in TableRowEditor (similar to FormDetail)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', async () => {
+      try {
+        const draft = await AsyncStorage.getItem('tableRowDraft');
+        if (!draft) {
+          return;
+        }
+        const parsed = JSON.parse(draft) as {
+          fieldname: string;
+          index: number | null;
+          row: Record<string, any>;
+        };
+        await AsyncStorage.removeItem('tableRowDraft');
+        if (!parsed || !parsed.fieldname || !parsed.row) {
+          return;
+        }
+        setFormData(prev => {
+          const current = Array.isArray(prev[parsed.fieldname])
+            ? [...(prev[parsed.fieldname] as any[])]
+            : [];
+          if (
+            typeof parsed.index === 'number' &&
+            parsed.index >= 0 &&
+            parsed.index < current.length
+          ) {
+            current[parsed.index] = parsed.row;
+          } else {
+            current.push(parsed.row);
+          }
+          return { ...prev, [parsed.fieldname]: current };
+        });
+      } catch {
+        // ignore parse/storage errors
+      }
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleChange = (fieldName: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [fieldName]: value,
@@ -307,6 +426,7 @@ function PreviewForm() {
     'Float',
     'Link',
     'Date',
+    'Table',
   ];
   const fieldsToRender =
     formFields.length > 0
@@ -529,6 +649,50 @@ function PreviewForm() {
             />
           </View>
         );
+
+      case 'Table': {
+        const tableSchema = tableSchemas[fieldname];
+        return (
+          <View key={fieldname} className="mb-4">
+            <Text
+              className="font-sans text-sm font-medium leading-5 tracking-normal"
+              style={{ color: theme.text }}
+            >
+              {label}
+            </Text>
+            <TableField
+              value={value}
+              onAddRow={undefined}
+              onEditRow={rowIndex =>
+                // @ts-ignore
+                (navigation as any).navigate('TableRowEditor', {
+                  fieldname,
+                  tableDoctype: (options as string) || '',
+                  title: label,
+                  index: rowIndex,
+                  initialRow:
+                    Array.isArray(value) && value[rowIndex]
+                      ? value[rowIndex]
+                      : null,
+                  schema: tableSchema || undefined,
+                })
+              }
+              onDeleteRow={rowIndex => {
+                const current = Array.isArray(value)
+                  ? [...(value as any[])]
+                  : [];
+                if (rowIndex >= 0 && rowIndex < current.length) {
+                  current.splice(rowIndex, 1);
+                  handleChange(
+                    fieldname,
+                    current as unknown as string | boolean
+                  );
+                }
+              }}
+            />
+          </View>
+        );
+      }
 
       default:
         // Default to regular text input

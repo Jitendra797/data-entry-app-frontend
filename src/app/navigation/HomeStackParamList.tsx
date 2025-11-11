@@ -1,3 +1,5 @@
+import { RawField } from '../../types';
+
 export type HomeStackParamList = {
   HomeMain: undefined;
   FormsList: { erpSystemName: string }; // ERP system name will be passed as param
@@ -8,5 +10,6 @@ export type HomeStackParamList = {
     title?: string;
     index?: number;
     initialRow?: Record<string, any> | null;
+    schema?: RawField[] | null;
   };
 };
