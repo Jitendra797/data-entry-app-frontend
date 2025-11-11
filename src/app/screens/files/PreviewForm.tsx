@@ -32,6 +32,10 @@ type PreviewFormNavigationProp = NativeStackNavigationProp<
 function PreviewForm() {
   const { t } = useTranslation();
   const { theme } = useTheme();
+
+  const deleteButtonStyle = {
+    backgroundColor: theme.deleteButton,
+  };
   const route = useRoute<PreviewFormRouteProp>();
   const navigation = useNavigation<PreviewFormNavigationProp>();
 
@@ -461,6 +465,10 @@ function PreviewForm() {
         );
 
       case 'Check':
+        const checkBoxStyle = {
+          backgroundColor: value ? theme.buttonBackground : 'transparent',
+          borderColor: value ? theme.buttonBackground : theme.border,
+        };
         return (
           <View key={fieldname} className="mb-4">
             <TouchableOpacity
@@ -469,12 +477,7 @@ function PreviewForm() {
             >
               <View
                 className="mr-3 flex h-5 w-5 items-center justify-center rounded border-2"
-                style={{
-                  backgroundColor: value
-                    ? theme.buttonBackground
-                    : 'transparent',
-                  borderColor: value ? theme.buttonBackground : theme.border,
-                }}
+                style={checkBoxStyle}
               >
                 {value && (
                   <Text className="text-xs" style={{ color: theme.buttonText }}>
@@ -608,7 +611,7 @@ function PreviewForm() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="w-full min-w-[80px] items-center justify-center gap-1 rounded-md p-4 opacity-100"
-                  style={{ backgroundColor: '#EF2226' }}
+                  style={deleteButtonStyle}
                   onPress={handleDeleteConfirmation}
                 >
                   <Text className="text-white">
@@ -729,7 +732,7 @@ function PreviewForm() {
               </TouchableOpacity>
               <TouchableOpacity
                 className="rounded-lg px-4 py-2.5"
-                style={{ backgroundColor: '#EF2226' }}
+                style={deleteButtonStyle}
                 onPress={handleDelete}
               >
                 <Text className="font-inter align-middle text-[14px] font-medium leading-[20px] tracking-[-0.006em] text-white">

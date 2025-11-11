@@ -20,6 +20,7 @@ export interface Theme {
   // Button colors
   buttonBackground: string;
   buttonText: string;
+  deleteButton: string;
 
   // Modal colors
   modalBackground: string;
@@ -55,6 +56,7 @@ const lightTheme: Theme = {
   iconColor: '#000000', // black icons
   buttonBackground: '#000000', // black button
   buttonText: '#FFFFFF', // white text on button
+  deleteButton: '#EF2226', // red delete button
   modalBackground: '#FFFFFF', // white modal
   modalOverlay: '#00000033', // dark overlay with transparency
   activeTint: '#000000', // black active
@@ -79,6 +81,7 @@ const darkTheme: Theme = {
   iconColor: '#FFFFFF', // white icons (opposite of black)
   buttonBackground: '#FFFFFF', // white button (opposite of black)
   buttonText: '#000000', // black text on button (opposite of white)
+  deleteButton: '#EF2226', // red delete button (same in both themes)
   modalBackground: '#1A1A1A', // dark modal (opposite of white)
   modalOverlay: '#FFFFFF33', // white overlay with transparency (opposite of dark)
   activeTint: '#FFFFFF', // white active (opposite of black)
