@@ -79,6 +79,13 @@ const TableRowEditor: React.FC = () => {
 
   const handleChange = (name: string, value: any) => {
     setRowData(prev => ({ ...prev, [name]: value }));
+    // Close dropdown after selection
+    if (dropdownStates[name]) {
+      setDropdownStates(prev => ({
+        ...prev,
+        [name]: false,
+      }));
+    }
   };
   const toggleDropdown = (name: string) => {
     setDropdownStates(prev => ({ ...prev, [name]: !prev[name] }));
