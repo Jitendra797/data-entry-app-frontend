@@ -27,6 +27,7 @@ import LanguageControl from '../../components/LanguageControl';
 import SelectDropdown from '../../components/SelectDropdown';
 import LinkDropdown from '../../components/LinkDropdown';
 import DatePicker from '../../components/DatePicker';
+import TableField from '../../components/TableField';
 import generateSchemaHash from '../../../helper/hashFunction';
 import { ArrowLeft } from 'lucide-react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -85,9 +86,16 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
         if (field.hidden) {
           return false;
         }
-        return ['Data', 'Select', 'Text', 'Int', 'Link', 'Date'].includes(
-          field.fieldtype
-        );
+        return [
+          'Data',
+          'Select',
+          'Text',
+          'Int',
+          'Float',
+          'Link',
+          'Date',
+          'Table',
+        ].includes(field.fieldtype);
       });
 
       const defaults: Record<string, any> = {};
@@ -207,6 +215,47 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
     return unsubscribe;
   }, [navigation, formData, t]);
 
+  // Apply table row edits created in TableRowEditor
+  useEffect(() => {
+    const onFocus = navigation.addListener('focus', async () => {
+      try {
+        const draft = await AsyncStorage.getItem('tableRowDraft');
+        if (!draft) {
+          return;
+        }
+        const parsed = JSON.parse(draft) as {
+          fieldname: string;
+          index: number | null;
+          row: Record<string, any>;
+        };
+        await AsyncStorage.removeItem('tableRowDraft');
+        if (!parsed || !parsed.fieldname || !parsed.row) {
+          return;
+        }
+        setFormData(prev => {
+          const current = Array.isArray(prev[parsed.fieldname])
+            ? [...(prev[parsed.fieldname] as any[])]
+            : [];
+          if (
+            typeof parsed.index === 'number' &&
+            parsed.index >= 0 &&
+            parsed.index < current.length
+          ) {
+            current[parsed.index] = parsed.row;
+          } else {
+            current.push(parsed.row);
+          }
+          const updated = { ...prev, [parsed.fieldname]: current };
+          AsyncStorage.setItem('tempFormData', JSON.stringify(updated));
+          return updated;
+        });
+      } catch {
+        // ignore parse/storage errors
+      }
+    });
+    return onFocus;
+  }, [navigation]);
+
   useEffect(() => {
     const restoreForm = async () => {
       const saved = await AsyncStorage.getItem('tempFormData');
@@ -322,8 +371,11 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                     : [];
                 const isLinkField = field.fieldtype === 'Link' && field.options;
                 const isDateField = field.fieldtype === 'Date';
+                const isTableField = field.fieldtype === 'Table';
                 const isOpen = dropdownStates[field.fieldname] || false;
                 const selectedValue = formData[field.fieldname];
+                const isNumericField =
+                  field.fieldtype === 'Int' || field.fieldtype === 'Float';
 
                 return (
                   <View
@@ -375,6 +427,47 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                           label: field.label || field.fieldname,
                         })}
                       />
+                    ) : isTableField ? (
+                      <TableField
+                        value={selectedValue}
+                        onAddRow={() =>
+                          (navigation as any).navigate('TableRowEditor', {
+                            fieldname: field.fieldname,
+                            tableDoctype: (field.options as string) || '',
+                            title: field.label || field.fieldname,
+                          })
+                        }
+                        onEditRow={rowIndex =>
+                          (navigation as any).navigate('TableRowEditor', {
+                            fieldname: field.fieldname,
+                            tableDoctype: (field.options as string) || '',
+                            title: field.label || field.fieldname,
+                            index: rowIndex,
+                            initialRow:
+                              Array.isArray(selectedValue) &&
+                              selectedValue[rowIndex]
+                                ? selectedValue[rowIndex]
+                                : null,
+                          })
+                        }
+                        onDeleteRow={async rowIndex => {
+                          const current = Array.isArray(selectedValue)
+                            ? [...(selectedValue as any[])]
+                            : [];
+                          if (rowIndex >= 0 && rowIndex < current.length) {
+                            current.splice(rowIndex, 1);
+                            const updated = {
+                              ...formData,
+                              [field.fieldname]: current,
+                            };
+                            setFormData(updated);
+                            await AsyncStorage.setItem(
+                              'tempFormData',
+                              JSON.stringify(updated)
+                            );
+                          }
+                        }}
+                      />
                     ) : (
                       <TextInput
                         className="h-[40px] w-full rotate-0 rounded-md border pb-2.5 pl-3 pr-3 pt-2.5 opacity-100"
@@ -388,6 +481,7 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                         })}
                         placeholderTextColor={theme.subtext}
                         value={formData[field.fieldname] || ''}
+                        keyboardType={isNumericField ? 'numeric' : 'default'}
                         onChangeText={text =>
                           handleChange(field.fieldname, text)
                         }
