@@ -52,24 +52,24 @@ const DatePicker: React.FC<DatePickerProps> = ({
     return `${year}-${month}-${day}`;
   };
 
-  const parseDateValue = (value: any) => {
-    if (!value) {
+  const parseDateValue = (dateValue: any) => {
+    if (!dateValue) {
       return new Date();
     }
-    const parsed = new Date(value);
+    const parsed = new Date(dateValue);
     if (Number.isNaN(parsed.getTime())) {
       return new Date();
     }
     return parsed;
   };
 
-  const formatDisplayDate = (value: any) => {
-    if (!value) {
+  const formatDisplayDate = (dateValue: any) => {
+    if (!dateValue) {
       return '';
     }
-    const parsed = new Date(value);
+    const parsed = new Date(dateValue);
     if (Number.isNaN(parsed.getTime())) {
-      return value;
+      return dateValue;
     }
     return parsed.toLocaleDateString();
   };
