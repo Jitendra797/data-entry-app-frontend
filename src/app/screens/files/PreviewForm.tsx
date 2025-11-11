@@ -1,10 +1,19 @@
-import { ArrowLeft, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, TouchableOpacity, View, Text } from 'react-native';
-import { ScrollView, TextInput } from 'react-native-gesture-handler';
+import {
+  Modal,
+  TouchableOpacity,
+  View,
+  Text,
+  TextInput,
+  ScrollView,
+} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LanguageControl from '../../components/LanguageControl';
+import SelectDropdown from '../../components/SelectDropdown';
+import LinkDropdown from '../../components/LinkDropdown';
+import DatePicker from '../../components/DatePicker';
 import { useTranslation } from 'react-i18next';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { SubmissionItem, RawField } from '../../../types';
@@ -38,7 +47,6 @@ function PreviewForm() {
   const [dropdownStates, setDropdownStates] = useState<Record<string, boolean>>(
     {}
   );
-  const [searchTerms, setSearchTerms] = useState<Record<string, string>>({});
 
   // Get the formId from route params
   const { formId } = route.params;
@@ -160,22 +168,11 @@ function PreviewForm() {
 
   const closeAllDropdowns = () => {
     setDropdownStates({});
-    setSearchTerms({});
-  };
-
-  const updateSearchTerm = (fieldName: string, term: string) => {
-    setSearchTerms(prev => ({
-      ...prev,
-      [fieldName]: term,
-    }));
   };
 
   // Close dropdowns when any other area is touched
   const handleOutsidePress = () => {
-    const hasOpenDropdown = Object.values(dropdownStates).some(state => state);
-    if (hasOpenDropdown) {
-      closeAllDropdowns();
-    }
+    closeAllDropdowns();
   };
 
   const handleSubmitConfirmation = () => {
@@ -297,18 +294,27 @@ function PreviewForm() {
   const formName = submissionItem.formName || 'Form Preview';
 
   // Create fields from the form schema if available, otherwise fallback to form data keys
+  // Filter out hidden fields and only show input fieldtypes (same as FormDetail)
+  const allowedFieldTypes = ['Data', 'Select', 'Text', 'Int', 'Link', 'Date'];
   const fieldsToRender =
     formFields.length > 0
-      ? formFields.map(field => ({
-          fieldname: field.fieldname,
-          label:
-            field.label ||
-            field.fieldname.charAt(0).toUpperCase() +
-              field.fieldname.slice(1).replace(/([A-Z])/g, ' $1'),
-          fieldtype: field.fieldtype || 'Data',
-          options: field.options,
-          value: formData[field.fieldname],
-        }))
+      ? formFields
+          .filter(field => {
+            if (field.hidden) {
+              return false;
+            }
+            return allowedFieldTypes.includes(field.fieldtype || 'Data');
+          })
+          .map(field => ({
+            fieldname: field.fieldname,
+            label:
+              field.label ||
+              field.fieldname.charAt(0).toUpperCase() +
+                field.fieldname.slice(1).replace(/([A-Z])/g, ' $1'),
+            fieldtype: field.fieldtype || 'Data',
+            options: field.options,
+            value: formData[field.fieldname],
+          }))
       : Object.keys(formData).map(key => ({
           fieldname: key,
           label:
@@ -322,6 +328,7 @@ function PreviewForm() {
   // Helper function to render field based on type
   const renderField = (field: any, index: number = 0) => {
     const { fieldname, label, fieldtype, options, value } = field;
+    const isOpen = dropdownStates[fieldname] || false;
 
     switch (fieldtype) {
       case 'Select':
@@ -329,13 +336,6 @@ function PreviewForm() {
           const optionsList = options
             .split('\n')
             .filter((opt: string) => opt.trim());
-          const isOpen = dropdownStates[fieldname] || false;
-          const searchTerm = searchTerms[fieldname] || '';
-
-          // Filter options based on search term
-          const filteredOptions = optionsList.filter((option: string) =>
-            option.trim().toLowerCase().includes(searchTerm.toLowerCase())
-          );
 
           return (
             <View
@@ -344,143 +344,22 @@ function PreviewForm() {
               style={{ zIndex: 1000 - index }}
             >
               <Text
-                className="mb-2 font-sans text-sm font-medium leading-5 tracking-normal"
+                className="font-sans text-sm font-medium leading-5 tracking-normal"
                 style={{ color: theme.text }}
               >
                 {label}
               </Text>
-
-              <View style={{ position: 'relative' }}>
-                {/* Dropdown Toggle Button */}
-                <TouchableOpacity
-                  className="h-[40px] w-full flex-row items-center justify-between rounded-md border px-3"
-                  style={{
-                    borderColor: theme.border,
-                    backgroundColor: theme.background,
-                  }}
-                  onPress={() => toggleDropdown(fieldname)}
-                >
-                  <Text
-                    className="flex-1"
-                    style={{ color: value ? theme.text : theme.subtext }}
-                  >
-                    {value || `Select ${label}`}
-                  </Text>
-                  <ChevronDown
-                    size={16}
-                    color={theme.subtext}
-                    style={{
-                      transform: [{ rotate: isOpen ? '180deg' : '0deg' }],
-                    }}
-                  />
-                </TouchableOpacity>
-
-                {/* Dropdown Options */}
-                {isOpen && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: 45,
-                      left: 0,
-                      right: 0,
-                      zIndex: 2000,
-                      backgroundColor: theme.dropdownBg,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      borderRadius: 8,
-                      shadowColor: theme.shadow,
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.15,
-                      shadowRadius: 8,
-                      elevation: 20,
-                      maxHeight: 250,
-                    }}
-                  >
-                    {/* Search Input */}
-                    <View
-                      className="border-b p-2"
-                      style={{ borderBottomColor: theme.border }}
-                    >
-                      <TextInput
-                        className="h-[35px] w-full rounded border px-3 text-sm"
-                        style={{
-                          borderColor: theme.border,
-                          backgroundColor: theme.background,
-                          color: theme.text,
-                        }}
-                        placeholder={`Search ${label.toLowerCase()}...`}
-                        placeholderTextColor={theme.subtext}
-                        value={searchTerm}
-                        onChangeText={text => updateSearchTerm(fieldname, text)}
-                        autoFocus={false}
-                      />
-                    </View>
-
-                    {/* Options List */}
-                    <ScrollView
-                      nestedScrollEnabled={true}
-                      style={{ maxHeight: 180 }}
-                    >
-                      {filteredOptions.length > 0 ? (
-                        filteredOptions.map(
-                          (option: string, optIndex: number) => (
-                            <TouchableOpacity
-                              key={optIndex}
-                              className={`px-4 py-3 ${optIndex < filteredOptions.length - 1 ? 'border-b' : ''}`}
-                              style={{
-                                backgroundColor:
-                                  value === option.trim()
-                                    ? theme.dropdownSelectedBg
-                                    : theme.background,
-                                borderBottomColor:
-                                  optIndex < filteredOptions.length - 1
-                                    ? theme.border
-                                    : undefined,
-                              }}
-                              onPress={() => {
-                                handleChange(fieldname, option.trim());
-                                updateSearchTerm(fieldname, ''); // Clear search after selection
-                              }}
-                            >
-                              <Text
-                                style={{
-                                  color:
-                                    value === option.trim()
-                                      ? theme.selectedText
-                                      : theme.text,
-                                  fontWeight:
-                                    value === option.trim() ? '600' : 'normal',
-                                }}
-                              >
-                                {option.trim()}
-                              </Text>
-                            </TouchableOpacity>
-                          )
-                        )
-                      ) : (
-                        <View className="px-4 py-6">
-                          <Text
-                            className="text-center text-sm"
-                            style={{ color: theme.subtext }}
-                          >
-                            No options found for "{searchTerm}"
-                          </Text>
-                        </View>
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-
-              {/* Add dynamic spacing when dropdown is open to push content down */}
-              {isOpen && (
-                <View
-                  style={{
-                    height: Math.min(filteredOptions.length * 48 + 60, 250) + 5, // +60 for search input
-                    width: '100%',
-                  }}
-                />
-              )}
+              <SelectDropdown
+                options={optionsList}
+                value={value}
+                onValueChange={val => handleChange(fieldname, val)}
+                placeholder={t('formDetail.selectPlaceholder', {
+                  label: label,
+                })}
+                isOpen={isOpen}
+                onToggle={() => toggleDropdown(fieldname)}
+                containerZIndex={1000 - index}
+              />
             </View>
           );
         }
@@ -505,6 +384,78 @@ function PreviewForm() {
               value={String(value || '')}
               onChangeText={text => handleChange(fieldname, text)}
               editable={true}
+            />
+          </View>
+        );
+
+      case 'Link':
+        if (options) {
+          return (
+            <View
+              key={fieldname}
+              className="mb-4"
+              style={{ zIndex: 1000 - index }}
+            >
+              <Text
+                className="font-sans text-sm font-medium leading-5 tracking-normal"
+                style={{ color: theme.text }}
+              >
+                {label}
+              </Text>
+              <LinkDropdown
+                doctype={options as string}
+                value={value}
+                onValueChange={val => handleChange(fieldname, val)}
+                placeholder={t('formDetail.selectPlaceholder', {
+                  label: label,
+                })}
+                isOpen={isOpen}
+                onToggle={() => toggleDropdown(fieldname)}
+                containerZIndex={1000 - index}
+              />
+            </View>
+          );
+        }
+        // Fallback to text input if no doctype
+        return (
+          <View key={fieldname} className="mb-4">
+            <Text
+              className="font-sans text-sm font-medium leading-5 tracking-normal"
+              style={{ color: theme.text }}
+            >
+              {label}
+            </Text>
+            <TextInput
+              className="h-[40px] w-full rotate-0 rounded-md border pb-2.5 pl-3 pr-3 pt-2.5 opacity-100"
+              style={{
+                borderColor: theme.border,
+                backgroundColor: theme.background,
+                color: theme.text,
+              }}
+              placeholder={label}
+              placeholderTextColor={theme.subtext}
+              value={String(value || '')}
+              onChangeText={text => handleChange(fieldname, text)}
+              editable={true}
+            />
+          </View>
+        );
+
+      case 'Date':
+        return (
+          <View key={fieldname} className="mb-4">
+            <Text
+              className="font-sans text-sm font-medium leading-5 tracking-normal"
+              style={{ color: theme.text }}
+            >
+              {label}
+            </Text>
+            <DatePicker
+              value={value}
+              onValueChange={val => handleChange(fieldname, val)}
+              placeholder={t('formDetail.selectPlaceholder', {
+                label: label,
+              })}
             />
           </View>
         );
