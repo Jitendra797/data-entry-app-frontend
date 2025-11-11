@@ -6,8 +6,6 @@ import {
   ScrollView,
   Modal,
   Alert,
-  Platform,
-  StyleSheet,
 } from 'react-native';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,30 +26,12 @@ import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
 import SelectDropdown from '../../components/SelectDropdown';
 import LinkDropdown from '../../components/LinkDropdown';
+import DatePicker from '../../components/DatePicker';
 import generateSchemaHash from '../../../helper/hashFunction';
 import { ArrowLeft } from 'lucide-react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { HomeStackParamList } from '@/app/navigation/HomeStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
-import DateTimePicker, {
-  DateTimePickerAndroid,
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
-
-const styles = StyleSheet.create({
-  iosModalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  iosModalSheet: {
-    padding: 16,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  iosModalSpacer: {
-    flex: 1,
-  },
-});
 
 type FormDetailRouteProp = RouteProp<HomeStackParamList, 'FormDetail'>;
 type FormDetailNavigationProp = NativeStackNavigationProp<
@@ -75,8 +55,6 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
   const [dropdownStates, setDropdownStates] = useState<Record<string, boolean>>(
     {}
   );
-  const [datePickerField, setDatePickerField] = useState<string | null>(null);
-  const [tempDate, setTempDate] = useState<Date>(new Date());
   const { t } = useTranslation();
   const { theme } = useTheme();
   const isSubmittedRef = useRef(false);
@@ -270,78 +248,6 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
     setDropdownStates({});
   };
 
-  const formatDate = (date: Date) => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const parseDateValue = (value: any) => {
-    if (!value) {
-      return new Date();
-    }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return new Date();
-    }
-    return parsed;
-  };
-
-  const formatDisplayDate = (value: any) => {
-    if (!value) {
-      return '';
-    }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-      return value;
-    }
-    return parsed.toLocaleDateString();
-  };
-
-  const showDatePicker = (fieldname: string) => {
-    closeAllDropdowns();
-    const currentValue = formData[fieldname];
-    const initialDate = parseDateValue(currentValue);
-
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        value: initialDate,
-        mode: 'date',
-        onChange: (event: DateTimePickerEvent, selectedDate?: Date) => {
-          if (event.type === 'dismissed' || !selectedDate) {
-            return;
-          }
-          handleChange(fieldname, formatDate(selectedDate));
-        },
-      });
-    } else {
-      setTempDate(initialDate);
-      setDatePickerField(fieldname);
-    }
-  };
-
-  const handleIOSDateChange = (
-    _event: DateTimePickerEvent,
-    selectedDate?: Date
-  ) => {
-    if (selectedDate) {
-      setTempDate(selectedDate);
-    }
-  };
-
-  const confirmIOSDate = () => {
-    if (!datePickerField) {
-      return;
-    }
-    handleChange(datePickerField, formatDate(tempDate));
-    setDatePickerField(null);
-  };
-
-  const cancelIOSDate = () => {
-    setDatePickerField(null);
-  };
-
   if (loading) {
     return (
       <SafeAreaView
@@ -460,26 +366,15 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
                         containerZIndex={1000 - index}
                       />
                     ) : isDateField ? (
-                      <TouchableOpacity
-                        className="h-[40px] w-full flex-row items-center justify-between rounded-md border px-3"
-                        style={{
-                          borderColor: theme.border,
-                          backgroundColor: theme.background,
-                        }}
-                        onPress={() => showDatePicker(field.fieldname)}
-                      >
-                        <Text
-                          style={{
-                            color: selectedValue ? theme.text : theme.subtext,
-                          }}
-                        >
-                          {selectedValue
-                            ? formatDisplayDate(selectedValue)
-                            : t('formDetail.selectPlaceholder', {
-                                label: field.label || field.fieldname,
-                              })}
-                        </Text>
-                      </TouchableOpacity>
+                      <DatePicker
+                        value={selectedValue}
+                        onValueChange={value =>
+                          handleChange(field.fieldname, value)
+                        }
+                        placeholder={t('formDetail.selectPlaceholder', {
+                          label: field.label || field.fieldname,
+                        })}
+                      />
                     ) : (
                       <TextInput
                         className="h-[40px] w-full rotate-0 rounded-md border pb-2.5 pl-3 pr-3 pt-2.5 opacity-100"
@@ -577,52 +472,6 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-      {Platform.OS === 'ios' && datePickerField && (
-        <Modal
-          animationType="slide"
-          transparent={true}
-          visible={true}
-          onRequestClose={cancelIOSDate}
-        >
-          <View
-            style={[
-              styles.iosModalContainer,
-              { backgroundColor: theme.modalOverlay },
-            ]}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={cancelIOSDate}
-              style={styles.iosModalSpacer}
-            />
-            <View
-              style={[
-                styles.iosModalSheet,
-                { backgroundColor: theme.modalBackground },
-              ]}
-            >
-              <DateTimePicker
-                mode="date"
-                display="spinner"
-                value={tempDate}
-                onChange={handleIOSDateChange}
-              />
-              <View className="mt-4 flex-row justify-end gap-3">
-                <TouchableOpacity onPress={cancelIOSDate}>
-                  <Text style={{ color: theme.subtext }}>
-                    {t('common.cancel')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={confirmIOSDate}>
-                  <Text style={{ color: theme.buttonText }}>
-                    {t('common.ok')}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 };
