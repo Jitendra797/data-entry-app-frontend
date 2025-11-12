@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../navigation/RootStackedList';
 import { useTheme } from '../../../context/ThemeContext';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearAuthTokens } from '../../../services/auth/tokenStorage';
 
 type SettingsNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<BottomTabsList, 'Settings'>,
@@ -58,9 +59,11 @@ function Settings() {
       // Sign out from Google
       await GoogleSignin.signOut();
 
+      // Clear secure tokens
+      await clearAuthTokens();
+
       // Clear all user-related data from AsyncStorage
       await AsyncStorage.multiRemove([
-        'idToken',
         'userInfo',
         'downloadDoctypes', // Clear downloaded forms
         'pendingSubmissions', // Clear pending submissions

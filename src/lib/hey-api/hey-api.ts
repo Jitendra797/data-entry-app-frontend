@@ -1,5 +1,5 @@
 import { BACKEND_URL } from '@env';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getIdToken } from '../../services/auth/tokenStorage';
 import type { CreateClientConfig } from './client/client.gen';
 
 export const createClientConfig: CreateClientConfig = config => {
@@ -23,14 +23,6 @@ export const createClientConfig: CreateClientConfig = config => {
     },
     // Use a custom fetch that handles auth properly
     fetch: async (input, init) => {
-      // Get auth token
-      let authToken = '';
-      try {
-        authToken = (await AsyncStorage.getItem('idToken')) || '';
-      } catch (error) {
-        console.error('Error getting auth token:', error);
-      }
-
       // Handle both string URL and Request object
       let url: string;
       let options: RequestInit = {};
@@ -49,16 +41,42 @@ export const createClientConfig: CreateClientConfig = config => {
         throw new Error('Invalid input to fetch');
       }
 
-      // Add auth header
-      const headers = {
-        ...options.headers,
-        ...(authToken && { Authorization: `Bearer ${authToken}` }),
+      const executeRequest = async (token?: string | null) => {
+        const headers = {
+          ...options.headers,
+          ...(token && { Authorization: `Bearer ${token}` }),
+        };
+
+        return fetch(url, {
+          ...options,
+          headers,
+        });
       };
 
-      return fetch(url, {
-        ...options,
-        headers,
-      });
+      let idToken: string | null = null;
+      try {
+        idToken = await getIdToken();
+      } catch (tokenError) {
+        console.error('Error retrieving ID token:', tokenError);
+      }
+
+      let response = await executeRequest(idToken);
+
+      if (response.status === 401) {
+        try {
+          const refreshedToken = await getIdToken({ forceRefresh: true });
+          if (refreshedToken && refreshedToken !== idToken) {
+            response = await executeRequest(refreshedToken);
+          }
+        } catch (refreshError) {
+          console.error(
+            'Failed to refresh ID token after 401 response:',
+            refreshError
+          );
+        }
+      }
+
+      return response;
     },
   };
 };

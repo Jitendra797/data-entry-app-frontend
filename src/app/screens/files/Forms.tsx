@@ -18,6 +18,7 @@ import { FormStackParamList } from '../../navigation/FormStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
 // import { submitFormData } from '../../../lib/hey-api/client/sdk.gen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getIdToken } from '../../../services/auth/tokenStorage';
 import axios from 'axios';
 import { BACKEND_URL } from '@env';
 
@@ -105,12 +106,19 @@ function Forms() {
           onPress: () => {
             (async () => {
               try {
+                const idToken = await getIdToken({ forceRefresh: true });
+                if (!idToken) {
+                  throw new Error(
+                    'Missing authentication token. Please sign in again.'
+                  );
+                }
+
                 const results = await Promise.allSettled(
                   queueData.map(async submissionItem =>
                     axios.post(`${BACKEND_URL}/submit`, submissionItem, {
                       headers: {
                         'Content-Type': 'application/json',
-                        Authorization: `Bearer ${await AsyncStorage.getItem('idToken')}`,
+                        ...(idToken && { Authorization: `Bearer ${idToken}` }),
                       },
                     })
                   )
@@ -156,10 +164,11 @@ function Forms() {
                 setShowSubmissionSummary(true);
               } catch (error) {
                 console.error('Unexpected error submitting forms:', error);
-                Alert.alert(
-                  t('formsScreen.submitError'),
-                  t('formsScreen.submitErrorMessage')
-                );
+                const message =
+                  error instanceof Error && error.message
+                    ? error.message
+                    : t('formsScreen.submitErrorMessage');
+                Alert.alert(t('formsScreen.submitError'), message);
               }
             })();
           },
@@ -179,13 +188,20 @@ function Forms() {
           onPress: async () => {
             try {
               console.log(formData);
+              const idToken = await getIdToken({ forceRefresh: true });
+              if (!idToken) {
+                throw new Error(
+                  'Missing authentication token. Please sign in again.'
+                );
+              }
+
               const response = await axios.post(
                 `${BACKEND_URL}/submit`,
                 formData,
                 {
                   headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${await AsyncStorage.getItem('idToken')}`,
+                    ...(idToken && { Authorization: `Bearer ${idToken}` }),
                   },
                 }
               );

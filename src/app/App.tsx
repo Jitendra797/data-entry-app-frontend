@@ -11,7 +11,12 @@ import '../../global.css';
 import { NetworkProvider } from '../context/NetworkProvider';
 import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import Home from './navigation/BottomTabs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GOOGLE_WEB_CLIENT_ID } from '@env';
+import {
+  getAuthTokens,
+  refreshAuthTokens,
+} from '../services/auth/tokenStorage';
 
 enableScreens();
 
@@ -25,16 +30,46 @@ function AppContent(): React.JSX.Element {
   );
 
   useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      offlineAccess: true,
+      hostedDomain: '',
+      forceCodeForRefreshToken: true,
+    });
+
     const checkAuthState = async () => {
       try {
-        const idToken = await AsyncStorage.getItem('idToken');
-        if (idToken) {
-          // If token exists, user is authenticated
-          // Token validation will happen on backend when making API calls
+        const storedTokens = await getAuthTokens();
+        const hasPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+
+        if (storedTokens?.idToken) {
           setInitialRoute('MainApp');
-        } else {
-          setInitialRoute('Login');
+          if (hasPreviousSignIn) {
+            try {
+              await refreshAuthTokens();
+            } catch (tokenError) {
+              console.error('Failed to refresh tokens silently:', tokenError);
+            }
+          }
+          return;
         }
+
+        if (hasPreviousSignIn) {
+          try {
+            const refreshed = await refreshAuthTokens();
+            if (refreshed.idToken) {
+              setInitialRoute('MainApp');
+              return;
+            }
+          } catch (refreshError) {
+            console.error(
+              'Unable to refresh tokens during startup:',
+              refreshError
+            );
+          }
+        }
+
+        setInitialRoute('Login');
       } catch (error) {
         console.error('Error checking auth state:', error);
         setInitialRoute('Login');

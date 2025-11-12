@@ -5,13 +5,16 @@ import {
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/RootStackedList';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail } from 'lucide-react-native';
 import LanguageControl from '../components/LanguageControl';
-import { GOOGLE_WEB_CLIENT_ID } from '@env';
 import { useTheme } from '../../context/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  refreshAuthTokens,
+  saveAuthTokens,
+} from '../../services/auth/tokenStorage';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -26,36 +29,43 @@ const Login: React.FC<Props> = ({ navigation }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
 
-  useEffect(() => {
-    GoogleSignin.configure({
-      webClientId: GOOGLE_WEB_CLIENT_ID,
-      offlineAccess: true,
-      hostedDomain: '',
-      forceCodeForRefreshToken: true,
-    });
-  }, []);
-
   const signInWithGoogle = async () => {
     try {
       await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
+      const signInResponse = await GoogleSignin.signIn();
 
-      console.log('User Info:', userInfo);
-
-      // Store user info and ID token in AsyncStorage
-      if (userInfo.data?.user && userInfo.data?.idToken) {
-        await AsyncStorage.setItem(
-          'userInfo',
-          JSON.stringify(userInfo.data.user)
+      if (signInResponse.type !== 'success' || !signInResponse.data) {
+        console.log(
+          'Google sign-in did not complete successfully.',
+          signInResponse
         );
-        await AsyncStorage.setItem('idToken', userInfo.data.idToken);
-        console.log('User info and ID token stored successfully');
+        return;
       }
 
-      // Navigate to main app after successful sign-in
+      const { data } = signInResponse;
+
+      console.log('User Info:', data);
+
+      if (data.user) {
+        await AsyncStorage.setItem('userInfo', JSON.stringify(data.user));
+      }
+
+      await saveAuthTokens({
+        idToken: data.idToken,
+        serverAuthCode: data.serverAuthCode,
+      });
+
+      try {
+        await refreshAuthTokens();
+      } catch (refreshError) {
+        console.error('Failed to refresh tokens after sign-in:', refreshError);
+      }
+
       navigation.navigate('MainApp');
 
-      Alert.alert('Success', `Welcome ${userInfo.data?.user.name}!`);
+      if (data.user?.name) {
+        Alert.alert('Success', `Welcome ${data.user.name}!`);
+      }
     } catch (error: any) {
       console.log('Google Sign-in Error:', error);
 
