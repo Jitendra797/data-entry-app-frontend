@@ -131,7 +131,15 @@ const TableRowEditor: React.FC = () => {
       ];
 
       if (f && f.length > 0) {
-        setFields(f.filter(x => !x.hidden && allowed.includes(x.fieldtype)));
+        setFields(
+          f.filter(
+            x =>
+              !x.hidden &&
+              !x.print_hide &&
+              !x.report_hide &&
+              allowed.includes(x.fieldtype)
+          )
+        );
       } else if (initialRow && Object.keys(initialRow).length > 0) {
         // Fallback: derive fields from existing row keys
         const derived: RawField[] = Object.keys(initialRow).map(k => ({
@@ -140,6 +148,8 @@ const TableRowEditor: React.FC = () => {
           fieldtype: 'Data',
           options: '',
           hidden: 0 as any,
+          print_hide: 0 as any,
+          report_hide: 0 as any,
         }));
         setFields(derived);
       } else {
@@ -162,7 +172,15 @@ const TableRowEditor: React.FC = () => {
         'Link',
         'Date',
       ];
-      setFields(schema.filter(x => !x.hidden && allowed.includes(x.fieldtype)));
+      setFields(
+        schema.filter(
+          x =>
+            !x.hidden &&
+            !x.print_hide &&
+            !x.report_hide &&
+            allowed.includes(x.fieldtype)
+        )
+      );
       setLoading(false);
     } else {
       loadSchema();

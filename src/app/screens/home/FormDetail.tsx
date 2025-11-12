@@ -83,7 +83,8 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
       }
 
       const inputFields = allFields.filter(field => {
-        if (field.hidden) {
+        // Skip if hidden, print_hide, or report_hide is true (value is 1 or truthy)
+        if (field.hidden || field.print_hide || field.report_hide) {
           return false;
         }
         return [

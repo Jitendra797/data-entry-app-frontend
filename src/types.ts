@@ -15,6 +15,8 @@ export type RawField = {
   options?: string;
   default?: string;
   hidden?: number;
+  print_hide?: number;
+  report_hide?: number;
 };
 export interface DocType {
   data: Data;

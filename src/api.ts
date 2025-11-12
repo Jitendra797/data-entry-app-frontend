@@ -73,5 +73,7 @@ export function extractFields(docType: DocType): RawField[] {
     label: field.label,
     options: field.options,
     hidden: field.hidden,
+    print_hide: field.print_hide,
+    report_hide: field.report_hide,
   }));
 }
