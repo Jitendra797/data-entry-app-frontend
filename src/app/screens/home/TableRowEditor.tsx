@@ -299,13 +299,25 @@ const TableRowEditor: React.FC = () => {
             </View>
           );
         })}
-        <TouchableOpacity
-          className="mt-2 rounded-md p-4"
-          style={{ backgroundColor: theme.buttonBackground }}
-          onPress={handleSave}
-        >
-          <Text style={{ color: theme.buttonText }}>{t('common.save')}</Text>
-        </TouchableOpacity>
+        <View className="mt-2 flex-row gap-3">
+          <TouchableOpacity
+            className="flex-1 items-center justify-center rounded-md border p-4"
+            style={{
+              borderColor: theme.border,
+              backgroundColor: theme.background,
+            }}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={{ color: theme.text }}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 items-center justify-center rounded-md p-4"
+            style={{ backgroundColor: theme.buttonBackground }}
+            onPress={handleSave}
+          >
+            <Text style={{ color: theme.buttonText }}>{t('common.save')}</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
