@@ -74,53 +74,6 @@ export type GetErpSystemsResponses = {
     200: unknown;
 };
 
-export type HealthCheckData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/';
-};
-
-export type HealthCheckResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GetItemByIdData = {
-    body?: never;
-    path: {
-        /**
-         * Item Id
-         */
-        item_id: number;
-    };
-    query?: {
-        /**
-         * Q
-         */
-        q?: string | null;
-    };
-    url: '/items/{item_id}';
-};
-
-export type GetItemByIdErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GetItemByIdError = GetItemByIdErrors[keyof GetItemByIdErrors];
-
-export type GetItemByIdResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type GetDoctypeByNameData = {
     body?: never;
     path: {
@@ -157,6 +110,34 @@ export type GetAllDoctypesData = {
 };
 
 export type GetAllDoctypesResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GetLinkOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Linked Doctype
+         */
+        linked_doctype: string;
+    };
+    query?: never;
+    url: '/link-options/{linked_doctype}';
+};
+
+export type GetLinkOptionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetLinkOptionsError = GetLinkOptionsErrors[keyof GetLinkOptionsErrors];
+
+export type GetLinkOptionsResponses = {
     /**
      * Successful Response
      */

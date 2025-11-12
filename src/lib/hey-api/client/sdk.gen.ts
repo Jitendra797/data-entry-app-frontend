@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetAllDoctypesData, GetAllDoctypesResponses, GetDoctypeByNameData, GetDoctypeByNameErrors, GetDoctypeByNameResponses, GetErpSystemsData, GetErpSystemsResponses, GetItemByIdData, GetItemByIdErrors, GetItemByIdResponses, HealthCheckData, HealthCheckResponses, SubmitFormDataData, SubmitFormDataErrors, SubmitFormDataResponses } from './types.gen';
+import type { GetAllDoctypesData, GetAllDoctypesResponses, GetDoctypeByNameData, GetDoctypeByNameErrors, GetDoctypeByNameResponses, GetErpSystemsData, GetErpSystemsResponses, GetLinkOptionsData, GetLinkOptionsErrors, GetLinkOptionsResponses, SubmitFormDataData, SubmitFormDataErrors, SubmitFormDataResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -29,26 +29,6 @@ export const getErpSystems = <ThrowOnError extends boolean = false>(options?: Op
 };
 
 /**
- * Read Root
- */
-export const healthCheck = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckData, ThrowOnError>) => {
-    return (options?.client ?? client).get<HealthCheckResponses, unknown, ThrowOnError>({
-        url: '/',
-        ...options
-    });
-};
-
-/**
- * Read Item
- */
-export const getItemById = <ThrowOnError extends boolean = false>(options: Options<GetItemByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetItemByIdResponses, GetItemByIdErrors, ThrowOnError>({
-        url: '/items/{item_id}',
-        ...options
-    });
-};
-
-/**
  * Get Doctype
  */
 export const getDoctypeByName = <ThrowOnError extends boolean = false>(options: Options<GetDoctypeByNameData, ThrowOnError>) => {
@@ -64,6 +44,16 @@ export const getDoctypeByName = <ThrowOnError extends boolean = false>(options: 
 export const getAllDoctypes = <ThrowOnError extends boolean = false>(options?: Options<GetAllDoctypesData, ThrowOnError>) => {
     return (options?.client ?? client).get<GetAllDoctypesResponses, unknown, ThrowOnError>({
         url: '/doctype',
+        ...options
+    });
+};
+
+/**
+ * Get Link Options
+ */
+export const getLinkOptions = <ThrowOnError extends boolean = false>(options: Options<GetLinkOptionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetLinkOptionsResponses, GetLinkOptionsErrors, ThrowOnError>({
+        url: '/link-options/{linked_doctype}',
         ...options
     });
 };
