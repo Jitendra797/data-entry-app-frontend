@@ -9,15 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNetwork } from '../../../context/NetworkProvider';
 import { useFocusEffect } from '@react-navigation/native';
-import { saveDocTypeToLocal, getAllDocTypeNames } from '../../../api';
 import {
-  // getAllDoctypes,
-  getDoctypeByName,
-} from '../../../lib/hey-api/client/sdk.gen';
-import { DocType } from '../../../types';
+  ensureDoctypeGraph,
+  getRootDocTypeNames,
+  getDocTypeFromLocal,
+} from '../../../api';
 import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
 import { ArrowLeft, Download, Check } from 'lucide-react-native';
@@ -74,7 +72,8 @@ const FormsList = () => {
           // setForms(combinedData);
           setForms(additionalDoctype.map(name => ({ name })));
         } else {
-          const stored = (await getAllDocTypeNames()) as FormItem[];
+          // When offline, only show root doctypes (main doctypes), not linked doctypes
+          const stored = (await getRootDocTypeNames()) as FormItem[];
           setForms(stored);
         }
       } catch (error) {
@@ -90,15 +89,20 @@ const FormsList = () => {
 
   useFocusEffect(() => {
     const checkDownloadStatus = async () => {
-      const existingDoctypeData =
-        await AsyncStorage.getItem('downloadDoctypes');
-      const allDocTypeStorage: Record<string, any> = existingDoctypeData
-        ? JSON.parse(existingDoctypeData)
-        : {};
-      const initialDownloadStates = forms.reduce(
-        (acc, f) => {
-          acc[f.name] = {
-            isDownloaded: !!allDocTypeStorage[f.name], // true if exists in storage
+      const statusEntries = await Promise.all(
+        forms.map(async f => {
+          const cached = await getDocTypeFromLocal(f.name);
+          return {
+            name: f.name,
+            isDownloaded: Boolean(cached),
+          };
+        })
+      );
+
+      const initialDownloadStates = statusEntries.reduce(
+        (acc, item) => {
+          acc[item.name] = {
+            isDownloaded: item.isDownloaded,
             isDownloading: false,
           };
           return acc;
@@ -109,7 +113,7 @@ const FormsList = () => {
       setDownloadStates(initialDownloadStates);
     };
 
-    if (forms.length > 0 && isConnected) {
+    if (forms.length > 0) {
       checkDownloadStatus();
     }
   });
@@ -121,20 +125,30 @@ const FormsList = () => {
     }));
 
     try {
-      const response = await getDoctypeByName({
-        path: { form_name: docTypeName },
+      const ensureResult = await ensureDoctypeGraph(docTypeName, {
+        networkAvailable: Boolean(isConnected),
       });
 
-      // Handle SDK response structure
-      const docTypeData = response.data as DocType;
+      if (ensureResult.skipped.includes(docTypeName)) {
+        throw new Error('Download skipped due to offline mode');
+      }
+      if (ensureResult.errors.length > 0) {
+        throw (
+          ensureResult.errors[0].error ??
+          new Error('Failed to download doctype')
+        );
+      }
 
-      //saves the doctype data
-      await saveDocTypeToLocal(docTypeName, docTypeData);
+      const cached = await getDocTypeFromLocal(docTypeName);
+      const isDownloaded = Boolean(cached);
+      if (!isDownloaded) {
+        throw new Error('Doctype not cached after download attempt');
+      }
 
       // Update download state to show as downloaded
       setDownloadStates(prev => ({
         ...prev,
-        [docTypeName]: { isDownloaded: true, isDownloading: false },
+        [docTypeName]: { isDownloaded, isDownloading: false },
       }));
     } catch (error) {
       console.error('Error downloading doctype:', error);

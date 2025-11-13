@@ -16,6 +16,7 @@ import { RootStackParamList } from '../../navigation/RootStackedList';
 import { useTheme } from '../../../context/ThemeContext';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearAllDoctypesFromLocal } from '../../../api';
 import { clearAuthTokens } from '../../../services/auth/tokenStorage';
 
 type SettingsNavigationProp = CompositeNavigationProp<
@@ -61,6 +62,7 @@ function Settings() {
 
       // Clear secure tokens
       await clearAuthTokens();
+      await clearAllDoctypesFromLocal();
 
       // Clear all user-related data from AsyncStorage
       await AsyncStorage.multiRemove([

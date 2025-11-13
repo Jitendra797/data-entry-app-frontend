@@ -16,12 +16,11 @@ import { useNetwork } from '../../../context/NetworkProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { enqueue } from '../../pendingQueue';
 import {
+  ensureDoctypeGraph,
   getDocTypeFromLocal,
-  saveDocTypeToLocal,
   extractFields,
 } from '../../../api';
-import { getDoctypeByName } from '../../../lib/hey-api/client/sdk.gen';
-import { DocType, RawField } from '../../../types';
+import { RawField } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import LanguageControl from '../../components/LanguageControl';
 import SelectDropdown from '../../components/SelectDropdown';
@@ -64,18 +63,21 @@ const FormDetail: React.FC<Props> = ({ navigation }) => {
     let allFields: RawField[] = [];
 
     try {
-      let savedDoctypeData = await getDocTypeFromLocal(formName);
-      if (!savedDoctypeData && isConnected) {
-        // fetch + save if not available locally
-        const response = await getDoctypeByName({
-          path: { form_name: formName },
-        });
-        const responseData = response.data as { data: DocType };
-        const fetched = responseData.data;
-        console.log('fetched', fetched);
-        await saveDocTypeToLocal(formName, fetched);
-        savedDoctypeData = fetched;
+      const ensureResult = await ensureDoctypeGraph(formName, {
+        networkAvailable: Boolean(isConnected),
+      });
+
+      if (ensureResult.skipped.length > 0) {
+        console.warn(
+          'Some doctypes were skipped due to offline mode:',
+          ensureResult.skipped
+        );
       }
+      if (ensureResult.errors.length > 0) {
+        console.error('Errors ensuring doctypes:', ensureResult.errors);
+      }
+
+      const savedDoctypeData = await getDocTypeFromLocal(formName);
       if (savedDoctypeData) {
         allFields = extractFields(savedDoctypeData);
       } else {

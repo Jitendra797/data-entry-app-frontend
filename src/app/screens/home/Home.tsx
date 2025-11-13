@@ -17,6 +17,12 @@ import { HomeStackParamList } from '../../navigation/HomeStackParamList';
 import { useTheme } from '../../../context/ThemeContext';
 import { getErpSystems } from '../../../lib/hey-api/client/sdk.gen';
 import { getQueue } from '../../pendingQueue';
+import { useNetwork } from '../../../context/NetworkProvider';
+import {
+  loadErpSystemsFromCache,
+  saveErpSystemsToCache,
+  type ErpSystem,
+} from '../../../services/erpStorage';
 
 type HomeNavigationProp = BottomTabNavigationProp<BottomTabsList, 'Home'> & {
   navigate: (
@@ -25,12 +31,6 @@ type HomeNavigationProp = BottomTabNavigationProp<BottomTabsList, 'Home'> & {
   ) => void;
 };
 
-export interface ErpSystem {
-  id: string;
-  name: string;
-  formCount: number;
-}
-
 const ERP: React.FC = () => {
   const { t } = useTranslation();
   const navigation = useNavigation<HomeNavigationProp>();
@@ -38,22 +38,119 @@ const ERP: React.FC = () => {
   const [erpSystems, setErpSystems] = useState<ErpSystem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingFormsCount, setPendingFormsCount] = useState<number>(0);
+  const { isConnected } = useNetwork();
+
+  const normalizeErpSystems = useCallback((raw: any): ErpSystem[] => {
+    if (!raw) {
+      return [];
+    }
+
+    const candidates = [raw?.data, raw];
+    let list: unknown[] = [];
+
+    for (const candidate of candidates) {
+      if (Array.isArray(candidate)) {
+        list = candidate;
+        break;
+      }
+      if (candidate && Array.isArray((candidate as any).data)) {
+        list = (candidate as any).data;
+        break;
+      }
+    }
+
+    const mapToErpSystem = (item: any): ErpSystem | null => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+      const id =
+        item.id ?? item.ID ?? item.key ?? item.name ?? item.systemId ?? '';
+      const name = item.name ?? item.title ?? item.systemName ?? '';
+      const formCountValue =
+        item.formCount ??
+        item.form_count ??
+        item.formsCount ??
+        item.forms_count ??
+        0;
+
+      if (!id || !name) {
+        return null;
+      }
+
+      return {
+        id: String(id),
+        name: String(name),
+        formCount: Number.isFinite(Number(formCountValue))
+          ? Number(formCountValue)
+          : 0,
+      };
+    };
+
+    return list
+      .map(mapToErpSystem)
+      .filter((value): value is ErpSystem => Boolean(value));
+  }, []);
 
   useEffect(() => {
-    const fetchERPSystems = async () => {
+    let cancelled = false;
+
+    const loadErpSystems = async () => {
+      if (cancelled) {
+        return;
+      }
+      setLoading(true);
+
+      let cached: ErpSystem[] | null = null;
+      try {
+        cached = await loadErpSystemsFromCache();
+        if (!cancelled && cached && cached.length > 0) {
+          setErpSystems(cached);
+        }
+      } catch (error) {
+        console.error('Failed to read cached ERP systems:', error);
+      }
+
+      if (isConnected === false) {
+        if (!cancelled) {
+          setLoading(false);
+        }
+        if (!cached || cached.length === 0) {
+          console.warn('Offline with no cached ERP systems available.');
+        }
+        return;
+      }
+
       try {
         const response = await getErpSystems();
-        setErpSystems(response.data as ErpSystem[]);
-        console.log('ERP Systems:', response.data);
-      } catch (error: any) {
+        const systems = normalizeErpSystems(response);
+        if (!cancelled) {
+          setErpSystems(systems);
+        }
+        await saveErpSystemsToCache(systems);
+        console.log('ERP Systems:', systems);
+      } catch (error) {
         console.error('Error fetching ERP systems:', error);
+        if (!cancelled && (!cached || cached.length === 0)) {
+          const fallback = await loadErpSystemsFromCache();
+          if (fallback && fallback.length > 0) {
+            setErpSystems(fallback);
+          } else {
+            setErpSystems([]);
+          }
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchERPSystems();
-  }, []);
+    loadErpSystems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, normalizeErpSystems]);
 
   const fetchPendingFormsCount = useCallback(async () => {
     try {
@@ -75,7 +172,7 @@ const ERP: React.FC = () => {
     }, [fetchPendingFormsCount])
   );
 
-  if (loading) {
+  if (loading && erpSystems.length === 0) {
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color={theme.text} />
@@ -162,12 +259,6 @@ const ERP: React.FC = () => {
                 style={{ color: theme.text }}
               >
                 {erp.name}
-              </Text>
-              <Text
-                className="font-inter text-center text-xs font-normal leading-5 tracking-normal"
-                style={{ color: theme.subtext }}
-              >
-                {t('home.formCount', { count: erp.formCount })}
               </Text>
             </TouchableOpacity>
           ))}

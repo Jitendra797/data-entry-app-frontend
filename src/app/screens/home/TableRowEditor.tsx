@@ -12,16 +12,16 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
-import { getDoctypeByName } from '../../../lib/hey-api/client/sdk.gen';
 import {
+  ensureDoctypeGraph,
   extractFields,
   getDocTypeFromLocal,
-  saveDocTypeToLocal,
 } from '../../../api';
 import { RawField, DocType } from '../../../types';
 import SelectDropdown from '../../components/SelectDropdown';
 import LinkDropdown from '../../components/LinkDropdown';
 import DatePicker from '../../components/DatePicker';
+import { useNetwork } from '../../../context/NetworkProvider';
 
 type TableRowEditorRouteParams = {
   fieldname: string;
@@ -42,6 +42,7 @@ const TableRowEditor: React.FC = () => {
   const { t } = useTranslation();
   const route = useRoute<Route>();
   const navigation = useNavigation();
+  const { isConnected } = useNetwork();
   const { fieldname, tableDoctype, index, initialRow, title, schema } =
     route.params;
 
@@ -52,67 +53,24 @@ const TableRowEditor: React.FC = () => {
     {}
   );
 
-  const tryParseJSON = (value: string | null) => {
-    try {
-      return value ? JSON.parse(value) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  const findLocalDocType = useCallback(
-    async (name: string): Promise<DocType | null> => {
-      const cached = await getDocTypeFromLocal(name);
-      if (cached && cached.fields) {
-        return cached;
-      }
-
-      try {
-        const keys = await AsyncStorage.getAllKeys();
-        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
-        for (const key of docTypeKeys) {
-          const data = await AsyncStorage.getItem(key);
-          const parsed = tryParseJSON(data);
-          if (
-            parsed &&
-            (parsed.name === name ||
-              parsed.doctype === name ||
-              parsed.title === name)
-          ) {
-            return parsed as DocType;
-          }
-        }
-      } catch {
-        // ignore local lookup errors
-      }
-      return null;
-    },
-    []
-  );
-
   const loadSchema = useCallback(async () => {
     setLoading(true);
     try {
-      // Try local cache first
-      let docType: DocType | null = await findLocalDocType(tableDoctype);
+      const ensureResult = await ensureDoctypeGraph(tableDoctype, {
+        networkAvailable: Boolean(isConnected),
+      });
 
-      // Fallback to API and cache it
-      if (!docType) {
-        try {
-          const response = await getDoctypeByName({
-            path: { form_name: tableDoctype },
-          });
-          const responseData = response.data as { data: DocType };
-          docType = responseData.data;
-          try {
-            await saveDocTypeToLocal(tableDoctype, docType);
-          } catch {
-            // ignore cache save errors
-          }
-        } catch {
-          // ignore network errors; we'll fall back below
-        }
+      if (ensureResult.skipped.length > 0) {
+        console.warn(
+          'Some doctypes were skipped due to offline mode in TableRowEditor:',
+          ensureResult.skipped
+        );
       }
+      if (ensureResult.errors.length > 0) {
+        console.error('Errors ensuring table doctypes:', ensureResult.errors);
+      }
+
+      const docType: DocType | null = await getDocTypeFromLocal(tableDoctype);
 
       let f: RawField[] | null = null;
       if (docType && docType.fields) {
@@ -159,7 +117,7 @@ const TableRowEditor: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [findLocalDocType, tableDoctype, initialRow]);
+  }, [tableDoctype, initialRow, isConnected]);
 
   useEffect(() => {
     if (schema && schema.length > 0) {

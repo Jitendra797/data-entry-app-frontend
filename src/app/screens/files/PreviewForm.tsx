@@ -60,47 +60,21 @@ function PreviewForm() {
   // Get the formId from route params
   const { formId } = route.params;
 
-  // Helper function to parse JSON safely
-  const tryParseJSON = useCallback((jsonString: string | null) => {
-    try {
-      return jsonString ? JSON.parse(jsonString) : null;
-    } catch (e) {
-      return null;
-    }
-  }, []);
-
   const fetchTableSchema = useCallback(
     async (tableDoctype: string): Promise<RawField[] | null> => {
-      if (!tableDoctype) {
+      const normalized = tableDoctype?.trim();
+      if (!normalized) {
         return null;
       }
-      const cached = await getDocTypeFromLocal(tableDoctype);
-      if (cached && cached.fields) {
+
+      const cached = await getDocTypeFromLocal(normalized);
+      if (cached?.fields) {
         return extractFields(cached);
       }
-
-      try {
-        const keys = await AsyncStorage.getAllKeys();
-        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
-        for (const key of docTypeKeys) {
-          const data = await AsyncStorage.getItem(key);
-          const parsed = tryParseJSON(data);
-          if (
-            parsed &&
-            parsed.fields &&
-            (parsed.name === tableDoctype ||
-              parsed.doctype === tableDoctype ||
-              parsed.title === tableDoctype)
-          ) {
-            return extractFields(parsed);
-          }
-        }
-      } catch {
-        // ignore lookup errors
-      }
+      console.warn('Table schema not found in local cache:', normalized);
       return null;
     },
-    [tryParseJSON]
+    []
   );
 
   const loadTableSchemas = useCallback(
@@ -137,60 +111,30 @@ function PreviewForm() {
       try {
         console.log('Fetching form schema for:', formName);
 
-        // Check if there's downloadDoctypes data
-        const downloadDoctypesData =
-          await AsyncStorage.getItem('downloadDoctypes');
-        if (downloadDoctypesData) {
-          const doctypes = tryParseJSON(downloadDoctypesData);
-          if (doctypes && doctypes[formName]) {
-            console.log(
-              'Found form schema in downloadDoctypes:',
-              doctypes[formName]
-            );
-            if (doctypes[formName].fields) {
-              const fields = doctypes[formName].fields;
-              setFormFields(fields);
-              await loadTableSchemas(fields);
-            } else {
-              setTableSchemas({});
-            }
-            return;
-          }
+        const normalized = formName?.trim();
+        if (!normalized) {
+          setFormFields([]);
+          setTableSchemas({});
+          return;
         }
 
-        // Fallback: search in all docType_ prefixed keys
-        const keys = await AsyncStorage.getAllKeys();
-        const docTypeKeys = keys.filter(key => key.startsWith('docType_'));
-
-        for (const key of docTypeKeys) {
-          const data = await AsyncStorage.getItem(key);
-          if (data) {
-            const parsedData = tryParseJSON(data);
-            if (
-              parsedData &&
-              (parsedData.name === formName || parsedData.doctype === formName)
-            ) {
-              console.log('Found form schema in docType_:', parsedData);
-              if (parsedData.fields) {
-                const fields = parsedData.fields;
-                setFormFields(fields);
-                await loadTableSchemas(fields);
-              } else {
-                setTableSchemas({});
-              }
-              return;
-            }
-          }
+        const cached = await getDocTypeFromLocal(normalized);
+        if (cached?.fields) {
+          const fields = extractFields(cached);
+          setFormFields(fields);
+          await loadTableSchemas(fields);
+        } else {
+          console.warn('No cached form schema found for:', normalized);
+          setFormFields([]);
+          setTableSchemas({});
         }
-
-        console.log('No form schema found for:', formName);
-        setTableSchemas({});
       } catch (error) {
         console.error('Error fetching form schema:', error);
+        setFormFields([]);
         setTableSchemas({});
       }
     },
-    [loadTableSchemas, tryParseJSON]
+    [loadTableSchemas]
   );
 
   const loadFormData = useCallback(async () => {
