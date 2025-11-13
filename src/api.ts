@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DocType, Field, FormItem, RawField } from './types';
-import { getDoctypeByName } from './lib/hey-api/client/sdk.gen';
+import {
+  getDoctypeByName,
+  getLinkOptions,
+} from './lib/hey-api/client/sdk.gen';
 
 const DOCTYPE_PREFIX = 'doctype:';
 const DOCTYPE_INDEX_KEY = 'doctypeIndex';
 const LEGACY_STORAGE_KEY = 'downloadDoctypes';
+const LINK_OPTIONS_PREFIX = 'linkOptions:';
 
 type DependencyType = 'link' | 'table';
 type OriginType = 'root' | DependencyType;
@@ -492,6 +496,89 @@ export async function ensureDoctypeGraph(
     }
   }
 
+  // After ensuring all doctypes, fetch and cache link options for linked doctypes
+  if (networkAvailable) {
+    const linkedDoctypes = new Set<string>();
+    for (const ensuredName of ensured) {
+      const stored = await readStoredDoctype(ensuredName);
+      if (stored) {
+        stored.dependencies.forEach(dep => {
+          if (dep.via === 'link') {
+            linkedDoctypes.add(normalizeDoctypeName(dep.name));
+          }
+        });
+      }
+    }
+
+    // Fetch and cache link options for all linked doctypes
+    for (const linkedDoctype of linkedDoctypes) {
+      if (!linkedDoctype) {
+        continue;
+      }
+      try {
+        // Check if already cached
+        const cached = await getLinkOptionsFromLocal(linkedDoctype);
+        if (cached && cached.length > 0) {
+          continue; // Already cached
+        }
+
+        // Fetch from API
+        const response = await getLinkOptions({
+          path: { linked_doctype: linkedDoctype },
+        });
+        const raw = (response as any)?.data ?? (response as any);
+        let list: unknown[] = [];
+        if (Array.isArray(raw)) {
+          list = raw as unknown[];
+        } else if (raw && Array.isArray(raw.data)) {
+          list = raw.data as unknown[];
+        }
+        const normalizedOptions: string[] = list
+          .map(item => {
+            if (typeof item === 'string') {
+              return item;
+            }
+            if (item && typeof item === 'object') {
+              const obj = item as Record<string, unknown>;
+              const labelCandidate =
+                obj.label ??
+                obj.value ??
+                obj.name ??
+                obj.title ??
+                obj.id ??
+                obj.key;
+              if (typeof labelCandidate === 'string') {
+                return labelCandidate;
+              }
+            }
+            return undefined;
+          })
+          .filter(
+            (opt): opt is string =>
+              typeof opt === 'string' && opt.trim().length > 0
+          )
+          .map(opt => opt.trim());
+
+        if (normalizedOptions.length > 0) {
+          await saveLinkOptionsToLocal(linkedDoctype, normalizedOptions);
+          console.log(
+            '[ensureDoctypeGraph] cached link options for',
+            linkedDoctype,
+            'count:',
+            normalizedOptions.length
+          );
+        }
+      } catch (error) {
+        console.warn(
+          '[ensureDoctypeGraph] failed to cache link options for',
+          linkedDoctype,
+          error
+        );
+        // Don't fail the whole operation if link options can't be fetched
+      }
+    }
+  }
+
   return {
     ensured,
     fetched,
@@ -510,4 +597,37 @@ export function extractFields(docType: DocType): RawField[] {
     print_hide: field.print_hide,
     report_hide: field.report_hide,
   }));
+}
+
+const linkOptionsStorageKey = (doctype: string): string => {
+  const normalized = normalizeDoctypeName(doctype);
+  return `${LINK_OPTIONS_PREFIX}${normalized}`;
+};
+
+export async function getLinkOptionsFromLocal(
+  doctype: string
+): Promise<string[] | null> {
+  const normalized = normalizeDoctypeName(doctype);
+  if (!normalized) {
+    return null;
+  }
+  const key = linkOptionsStorageKey(normalized);
+  const raw = await AsyncStorage.getItem(key);
+  if (!raw) {
+    return null;
+  }
+  const parsed = parseJson<string[]>(raw);
+  return parsed;
+}
+
+export async function saveLinkOptionsToLocal(
+  doctype: string,
+  options: string[]
+): Promise<void> {
+  const normalized = normalizeDoctypeName(doctype);
+  if (!normalized) {
+    return;
+  }
+  const key = linkOptionsStorageKey(normalized);
+  await AsyncStorage.setItem(key, serialize(options));
 }

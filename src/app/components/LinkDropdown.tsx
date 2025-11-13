@@ -9,7 +9,12 @@ import {
 } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { useNetwork } from '../../context/NetworkProvider';
 import { getLinkOptions } from '../../lib/hey-api/client/sdk.gen';
+import {
+  getLinkOptionsFromLocal,
+  saveLinkOptionsToLocal,
+} from '../../api';
 
 type LinkDropdownProps = {
   doctype: string; // linked doctype to fetch options for
@@ -31,6 +36,7 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
   containerZIndex,
 }) => {
   const { theme } = useTheme();
+  const { isConnected } = useNetwork();
   const [allOptions, setAllOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,6 +111,82 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
       try {
         setLoading(true);
         setError(null);
+
+        // First, try to get from local storage (works offline)
+        const cachedOptions = await getLinkOptionsFromLocal(normalizedDoctype);
+        if (cachedOptions && cachedOptions.length > 0) {
+          console.log('[LinkDropdown] using cached link options', {
+            doctype: normalizedDoctype,
+            count: cachedOptions.length,
+          });
+          if (!cancelled) {
+            hasLoadedRef.current = true;
+            setAllOptions(cachedOptions);
+            setSearchTerm('');
+            setLoading(false);
+          }
+          // If online, also fetch fresh data in background to update cache
+          if (isConnected) {
+            getLinkOptions({
+              path: { linked_doctype: normalizedDoctype },
+            })
+              .then(response => {
+                const raw = (response as any)?.data ?? (response as any);
+                let list: unknown[] = [];
+                if (Array.isArray(raw)) {
+                  list = raw as unknown[];
+                } else if (raw && Array.isArray(raw.data)) {
+                  list = raw.data as unknown[];
+                }
+                const normalizedOptions: string[] = list
+                  .map(item => {
+                    if (typeof item === 'string') {
+                      return item;
+                    }
+                    if (item && typeof item === 'object') {
+                      const obj = item as Record<string, unknown>;
+                      const labelCandidate =
+                        obj.label ??
+                        obj.value ??
+                        obj.name ??
+                        obj.title ??
+                        obj.id ??
+                        obj.key;
+                      if (typeof labelCandidate === 'string') {
+                        return labelCandidate;
+                      }
+                    }
+                    return undefined;
+                  })
+                  .filter(
+                    (opt): opt is string =>
+                      typeof opt === 'string' && opt.trim().length > 0
+                  )
+                  .map(opt => opt.trim());
+                if (normalizedOptions.length > 0) {
+                  saveLinkOptionsToLocal(normalizedDoctype, normalizedOptions);
+                  if (!cancelled) {
+                    setAllOptions(normalizedOptions);
+                  }
+                }
+              })
+              .catch(err => {
+                console.warn('[LinkDropdown] failed to refresh options:', err);
+              });
+          }
+          return;
+        }
+
+        // If no cache and offline, show error
+        if (!isConnected) {
+          if (!cancelled) {
+            setError('No cached options available (offline)');
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Online: fetch from API
         const response = await getLinkOptions({
           path: { linked_doctype: normalizedDoctype },
         });
@@ -154,6 +236,10 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
           hasLoadedRef.current = true;
           setAllOptions(normalizedOptions);
           setSearchTerm('');
+          // Cache the options for offline use
+          if (normalizedOptions.length > 0) {
+            await saveLinkOptionsToLocal(normalizedDoctype, normalizedOptions);
+          }
         }
       } catch (e) {
         if (!cancelled) {
@@ -169,7 +255,7 @@ const LinkDropdown: React.FC<LinkDropdownProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, normalizedDoctype, allOptions.length]);
+  }, [isOpen, normalizedDoctype, allOptions.length, isConnected]);
 
   return (
     <View style={containerStyle}>
